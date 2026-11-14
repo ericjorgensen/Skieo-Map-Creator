@@ -12,9 +12,10 @@ Maps made with an older version show **Rebuild recommended** in My Maps: one cli
     hotels, apartments and inns) is a **Hotel** now, and the three lakeside estates (a glazed great room between gabled
     pavilions on a stone terrace) are **Base Lodges** (food, rest and warmth for day skiers). No Grand Lodges.
   - **Plain names** in the build menu: Cabin 1-29, Hotel 1-18 and Base Lodge 1-3.
-  - **Guests and prices follow the building's size**: guests from its floor area, and building and running one costs
-    at most 1.3 times the game's own building of the same kind (the biggest hotel cost $5.4 million before, now
-    $2.9 million; the small inns are $670,000).
+  - **Cabins are single-family homes**: 4 beds each, $30,400 to build and $152 a day to run.
+  - **Hotels and base lodges hold guests by their size** (their floor area), and building and running one costs at
+    most 1.3 times the game's own building of the same kind (the biggest hotel cost $5.4 million before, now $2.9
+    million; the small inns are $670,000).
   - **They stay out of hubs**: placing one doesn't start a new hub or stretch one across the map.
   - The boulders around the buildings are gone.
 - **Mod Library**: an Install and an Uninstall button for each mod instead of the switch.
