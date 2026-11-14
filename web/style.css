@@ -258,6 +258,8 @@ input[type=range] { width: 100%; accent-color: var(--steel); margin: 6px 0 2px; 
   letter-spacing: .5px; background: var(--tag-bg); color: var(--tag-ink); }
 .badge.off { color: #c7cfd5; background: #4b5963; }
 .badge.stale { color: #ffe3a6; background: #6b5123; }
+.mbtns { display: flex; flex-direction: column; gap: 6px; flex: none; align-self: center; }
+.mbtns .gbtn { font-size: 14px; padding: 5px 12px; min-width: 96px; }
 .mact { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12.5px; }
 .mact .link { color: #cfe6f4; }
 .mact .link.danger { color: #ffb3ad; }

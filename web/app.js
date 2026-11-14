@@ -755,21 +755,25 @@ function renderMods(r) {
   if (!r.found) { $('modsList').innerHTML = '<div class="empty">Ski-E-O was not found.</div>'; return; }
   $('modsList').innerHTML = r.mods.map((m) => {
     const note = m.included ? 'Already in your own lift mod'
-      : m.on ? (m.key ? `On: press ${esc(m.key)} in game` : 'On: in the build menu') : 'Off';
+      : m.on ? (m.key ? `Installed: press ${esc(m.key)} in game` : 'Installed: in the build menu') : 'Not installed';
     return `<div class="mrow" data-mod="${esc(m.id)}">
       <div class="mi"><h4>${esc(m.name)}</h4>
         <div class="sub">${esc(m.about)}</div>
         <span class="badge${m.on ? '' : ' off'}">${note}</span></div>
-      <label class="switch" title="${m.on ? 'Switch off' : 'Switch on'}">
-        <input type="checkbox" ${m.on ? 'checked' : ''} ${m.included ? 'disabled' : ''} aria-label="${esc(m.name)}">
-        <span class="knob"></span></label></div>`;
+      <div class="mbtns">
+        <button class="gbtn green" data-on="1" ${m.on || m.included ? 'disabled' : ''} aria-label="Install ${esc(m.name)}">Install</button>
+        <button class="gbtn crimson" data-on="0" ${!m.on || m.included ? 'disabled' : ''} aria-label="Uninstall ${esc(m.name)}">Uninstall</button>
+      </div></div>`;
   }).join('');
-  $('modsList').querySelectorAll('.switch input').forEach((sw) => {
-    sw.onchange = async () => {
-      const row = sw.closest('.mrow');
-      document.querySelectorAll('#modsList .switch input').forEach((x) => { x.disabled = true; });
-      row.querySelector('.badge').textContent = sw.checked ? 'Installing...' : 'Removing...';
-      const res = await call('set_mod', row.dataset.mod, sw.checked);
+  $('modsList').querySelectorAll('.mbtns button').forEach((btn) => {
+    btn.onclick = async () => {
+      const row = btn.closest('.mrow');
+      const on = btn.dataset.on === '1';
+      if (!on && !await confirmBox('Uninstall ' + row.querySelector('h4').textContent + '?',
+        'It is removed from the game. Resorts that use it may not load until you install it again.', 'Uninstall')) return;
+      document.querySelectorAll('#modsList .mbtns button').forEach((x) => { x.disabled = true; });
+      row.querySelector('.badge').textContent = on ? 'Installing...' : 'Removing...';
+      const res = await call('set_mod', row.dataset.mod, on);
       if (!res.ok) { errorBox(res.error); return loadMods(); }
       renderMods(res);
     };

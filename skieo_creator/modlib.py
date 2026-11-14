@@ -45,8 +45,9 @@ MODS = {
                       zip='Alpine_Buildings_Pack.zip',
                       about='50 new buildings in the build menu, all made for this pack: timber-frame mountain homes, '
                             'log cabins, A-frames, Swiss chalets, townhouses, modern villas and hotels, inns, grand lodges '
-                            'and two giants. Each one works and unlocks like the stock Cabin, Grand Lodge or Hotel it is '
-                            'based on; bigger ones cost more and hold more guests.'),
+                            'and two giants (Cabin 1-29, Grand Lodge 1-7, Hotel 1-9, Base Lodge 1-5). Each works and '
+                            'unlocks like the game\'s own Cabin, Grand Lodge, Hotel or Base Lodge; bigger ones hold more '
+                            'guests and cost a little more. Doors at every entrance, snow on the roofs.'),
 }
 PAK_EXTS = ('.pak', '.ucas', '.utoc')
 OWN_LIFT_MOD = 'ZZZ_LiftMod_P.pak'          # the mod author's all-in-one lift pack already contains both R2 lifts ('lift')

@@ -9,8 +9,8 @@ usage: python tests/ui_drive.py <out dir> <scenario>
              units    -- yearly snowfall next to the multiplier, the ft | m switch
              treecap  -- the tree slider follows the map size (5M typed at 20 km, then 12 / 3 / 20 / 8 km, a moved square)
              bigtrees -- 20 km map with the most trees the slider allows: create and install (Ski-E-O must be closed)
-             mods     -- Mod Library: switch on the pack named by env MOD (default 'buildings') with its real switch
-                         (Ski-E-O must be closed)
+             mods     -- Mod Library: install the pack named by env MOD (default 'buildings') with its real Install
+                         button (Ski-E-O must be closed)
              osm      -- real trails and lifts: search env OSM_Q (default 'Beaver Creek'; OSM_KM size, OSM_AT "lat,lon"
                          centre), load terrain, switch the OpenStreetMap option on, show the lines and the lift list,
                          the satellite view (glades left out in grey) and with env OSM_LOOK "lat,lon,zoom" a close look;
@@ -409,18 +409,19 @@ def drive(win):
             print('job', (js(win, "JSON.stringify(S.job)") or '')[:800], flush=True)
         print('errors', js(win, "JSON.stringify(window.__errs || [])"), flush=True)
     if SCEN == 'mods':
-        sel ="document.querySelector('#modsList .mrow[data-mod=%s] .switch input')" % json.dumps(os.environ.get('MOD', 'buildings'))
+        row = "document.querySelector('#modsList .mrow[data-mod=%s]')" % json.dumps(os.environ.get('MOD', 'buildings'))
+        inst, uninst = row + ".querySelector('[data-on=\"1\"]')", row + ".querySelector('[data-on=\"0\"]')"
         js(win, "document.getElementById('modsBtn').click()")
         wait_js(win, "document.querySelectorAll('#modsList .mrow, #modsList .empty').length > 0", 60)
         time.sleep(0.8)
         shot('70_mods')
-        if not js(win, sel + '.checked'):
-            js(win, "(function (i) { i.checked = true; i.dispatchEvent(new Event('change')); })(%s)" % sel)
-            wait_js(win, "(function (i) { return i && i.checked && !i.disabled; })(%s)" % sel, 300)
+        if not js(win, inst + '.disabled'):                  # not installed yet: Install
+            js(win, inst + '.click()')
+            wait_js(win, "(function (i, u) { return i && i.disabled && !u.disabled; })(%s, %s)" % (inst, uninst), 300)
             time.sleep(0.8)
             shot('71_mods_on')
         print('mods', js(win, "JSON.stringify([].map.call(document.querySelectorAll('#modsList .mrow'), function (r) { "
-                              "return [r.dataset.mod, r.querySelector('.switch input').checked, r.querySelector('.badge').textContent]; }))"),
+                              "return [r.dataset.mod, !r.querySelector('[data-on=\"0\"]').disabled, r.querySelector('.badge').textContent]; }))"),
               flush=True)
         print('errors', js(win, "JSON.stringify(window.__errs || [])"), flush=True)
     time.sleep(0.5)

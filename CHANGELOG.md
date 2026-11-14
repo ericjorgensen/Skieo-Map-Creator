@@ -2,6 +2,21 @@
 
 Maps made with an older version show **Rebuild recommended** in My Maps: one click on Rebuild gives them the fixes.
 
+## v1.7.0
+- **Oof's Alpine Buildings** (Mod Library), reworked:
+  - **Doors at every entrance**, and guests go in at the doors. Hotels, grand lodges and base lodges have a front
+    entrance and side entrances.
+  - **Snow on everything open to the sky**: every building has its own snow cap, like the game's own buildings: roofs,
+    turret cones, steep A-frame roofs, porch and balcony tops. Porches and decks under a roof stay free of snow.
+  - **Five of the lodges are Base Lodges** now (food, rest and warmth for day skiers).
+  - **Plain names** in the build menu: Cabin 1-29, Grand Lodge 1-7, Hotel 1-9 and Base Lodge 1-5.
+  - **Guests and prices follow the building's size**: guests from its floor area, and building and running one costs
+    at most 1.3 times the game's own building of the same kind (the biggest hotel cost $5.4 million before, now
+    $2.9 million).
+  - **They stay out of hubs**: placing one doesn't start a new hub or stretch one across the map.
+  - The boulders around the buildings are gone.
+- **Mod Library**: an Install and an Uninstall button for each mod instead of the switch.
+
 ## v1.6.2
 - **Real trails and lifts: no more runs painted twice.** OpenStreetMap often has a run drawn twice (a newer piste line
   next to the older road that carries the run's name, or a second mapper's line): the map got two trails with the same
