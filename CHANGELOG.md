@@ -4,8 +4,7 @@ Maps made with an older version show **Rebuild recommended** in My Maps: one cli
 
 ## v1.7.0
 - **Oof's Alpine Buildings** (Mod Library), reworked:
-  - **Doors at every entrance**, and guests go in at the doors. Hotels, grand lodges and base lodges have a front
-    entrance and side entrances.
+  - **Doors at every entrance**. Hotels and base lodges have a front entrance and side entrances.
   - **Snow on everything open to the sky**: every building has its own snow cap, like the game's own buildings: roofs,
     turret cones, steep A-frame roofs, porch and balcony tops. Porches and decks under a roof stay free of snow.
   - **Sorted by what they look like**: every big building with many windows (the grand lodges, the giants, the modern
@@ -16,7 +15,8 @@ Maps made with an older version show **Rebuild recommended** in My Maps: one cli
   - **Hotels and base lodges hold guests by their size** (their floor area), and building and running one costs at
     most 1.3 times the game's own building of the same kind (the biggest hotel cost $5.4 million before, now $2.9
     million; the small inns are $670,000).
-  - **They stay out of hubs**: placing one doesn't start a new hub or stretch one across the map.
+  - **They sell what the game's own building sells**: beds to rent in the cabins and hotels (Bunk, Private Room,
+    Suite), and food, drinks and hand warmers in the base lodges.
   - The boulders around the buildings are gone.
 - **Mod Library**: an Install and an Uninstall button for each mod instead of the switch.
 
