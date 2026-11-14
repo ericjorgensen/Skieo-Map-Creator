@@ -24,7 +24,13 @@ TDEP_URL = ('https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevatio
             'bbox={w:.7f},{s:.7f},{e:.7f},{n:.7f}&bboxSR=4326&imageSR=4326&size={nx},{ny}&format=tiff&pixelType=F32'
             '&noData=-9999&interpolation=RSP_BilinearInterpolation&f=image')
 TERRARIUM_URL = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'
+# '3dep' (until 1.7.0) read the server's image as if it covered exactly the requested box, but exportImage keeps its
+# pixels square in degrees and widens the latitude span instead (by 1/cos(lat), ~38% at 44N): the terrain came out
+# squeezed north-south towards the map centre. '3dep2' asks for the exact box and maps the image by its own
+# georeferencing. New maps use '3dep2'; maps made with '3dep' keep it on Rebuild, so the terrain under their resorts
+# stays where it was (2026-11-14, found from real lifts landing off their ridges at Killington).
 SOURCES = {
+    '3dep2': dict(name='USGS 3DEP (10 m)', credit='Elevation: USGS 3D Elevation Program (public domain)'),
     '3dep': dict(name='USGS 3DEP (10 m)', credit='Elevation: USGS 3D Elevation Program (public domain)'),
     'terrarium': dict(name='Terrain Tiles (~30 m)', credit='Elevation: Terrain Tiles on AWS (Mapzen; SRTM, GMTED, ETOPO1, 3DEP and others)'),
 }
@@ -96,7 +102,21 @@ def gaussian(a, sigma):
 
 # ---------------------------------------------------------------- sources
 
-def _fetch_3dep(lat, lon, size_m, cancel, progress):
+def _georef(data):
+    """(west, north, degrees per pixel x, degrees per pixel y) from a GeoTIFF's ModelTiepoint / ModelPixelScale, or
+    None when the tags are missing"""
+    import tifffile
+    with tifffile.TiffFile(io.BytesIO(data)) as t:
+        tags = t.pages[0].tags
+        sc, tp = tags.get('ModelPixelScaleTag'), tags.get('ModelTiepointTag')
+        if not (sc and tp):
+            return None
+        i, j, x, y = tp.value[0], tp.value[1], tp.value[3], tp.value[4]      # pixel (i, j) corner at (x, y)
+        return x - i * sc.value[0], y + j * sc.value[1], sc.value[0], sc.value[1]
+
+
+def _fetch_3dep(lat, lon, size_m, cancel, progress, exact=True):
+    """exact: the image's real extent (see SOURCES); False reproduces the old, squeezed terrain of '3dep' maps"""
     import tifffile
     LA, LO = grid_latlon(lat, lon, size_m)
     pad_lat = 3 * size_m / (G - 1) / 111320.0
@@ -107,7 +127,8 @@ def _fetch_3dep(lat, lon, size_m, cancel, progress):
     ny = int(min(4000, max(256, math.ceil((n - s) * 111320.0 / spacing * 1.1))))
     nx = int(min(4000, max(256, math.ceil((e - w) * 111320.0 * math.cos(math.radians(lat)) / spacing * 1.1))))
     progress(0.1, 'Downloading USGS elevation data...')
-    data = net.get(TDEP_URL.format(w=w, s=s, e=e, n=n, nx=nx, ny=ny), timeout=300, retries=3, cancel=cancel)
+    url = TDEP_URL.format(w=w, s=s, e=e, n=n, nx=nx, ny=ny) + ('&adjustAspectRatio=false' if exact else '')
+    data = net.get(url, timeout=300, retries=3, cancel=cancel)
     if data[:2] not in (b'II', b'MM'):
         raise DemError('USGS returned no elevation image (%r)' % data[:80])
     img = tifffile.imread(io.BytesIO(data)).astype(np.float64)
@@ -117,8 +138,14 @@ def _fetch_3dep(lat, lon, size_m, cancel, progress):
         raise DemError('USGS has no elevation for part of this area')
     progress(0.7, 'Resampling elevation...')
     ph, pw = img.shape
-    rows = (n - LA) / (n - s) * ph - 0.5
-    cols = (LO - w) / (e - w) * pw - 0.5
+    ref = _georef(data) if exact else None
+    if ref:                                          # where the image really is (pixel centres at +0.5)
+        west, north, dx, dy = ref
+        rows = (north - LA) / dy - 0.5
+        cols = (LO - west) / dx - 0.5
+    else:
+        rows = (n - LA) / (n - s) * ph - 0.5
+        cols = (LO - w) / (e - w) * pw - 0.5
     return sample_cubic(img, rows, cols)
 
 
@@ -180,7 +207,7 @@ def cache_key(lat, lon, size_m, source):
 
 def load(lat, lon, size_m, cancel=net.NEVER, progress=lambda f, t: None, prefer=None):
     """-> (dem metres float32 (G, G), source id). Cached per window."""
-    order = [prefer] if prefer else (['3dep', 'terrarium'] if in_us(lat, lon) else ['terrarium'])
+    order = [prefer] if prefer else (['3dep2', 'terrarium'] if in_us(lat, lon) else ['terrarium'])
     if prefer is None and 'terrarium' not in order:
         order.append('terrarium')
     errors = []
@@ -197,7 +224,10 @@ def load(lat, lon, size_m, cancel=net.NEVER, progress=lambda f, t: None, prefer=
                 pass
         t = time.time()
         try:
-            dem = (_fetch_3dep if src == '3dep' else _fetch_terrarium)(lat, lon, size_m, cancel, progress)
+            if src in ('3dep', '3dep2'):
+                dem = _fetch_3dep(lat, lon, size_m, cancel, progress, exact=src == '3dep2')
+            else:
+                dem = _fetch_terrarium(lat, lon, size_m, cancel, progress)
         except (DemError, net.NetError) as e:
             log.warning('%s failed: %s', src, e)
             errors.append(str(e))

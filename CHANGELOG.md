@@ -2,6 +2,17 @@
 
 Maps made with an older version show **Rebuild recommended** in My Maps: one click on Rebuild gives them the fixes.
 
+## v1.7.1
+- **US maps: the terrain is where it really is.** The USGS elevation service sends a taller area than the one asked
+  for, and the Map Creator stretched it over the map anyway: the terrain of every US map came out squeezed north-south
+  towards the middle of the map (by about a quarter at Killington's latitude), so peaks and ridges away from the middle
+  sat hundreds of metres from their real spots. With the real trails and lifts on, the lifts and trails were in their
+  real places but the ridges under them were not (Superstar Express ended below the ridge it climbs). New maps get the
+  real terrain: Killington Peak lands within 30 m of the real one (was 700 m off). Maps outside the US were not
+  affected.
+- **To fix a US map, create it again** (same place, same size). Rebuild keeps the old terrain on purpose, so a resort
+  you already built on it doesn't end up floating or buried.
+
 ## v1.7.0
 - **Oof's Alpine Buildings** (Mod Library), reworked:
   - **Doors at every entrance**. Hotels and base lodges have a front entrance and side entrances.
