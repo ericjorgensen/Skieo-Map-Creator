@@ -95,6 +95,7 @@ This makes `dist\SkiEO-Map-Creator.exe`, a single file that bundles `web/`, `dat
 | `packaging/` | PyInstaller spec, build script, icon, version info, credits (`THIRD-PARTY.txt`), `verify_exe.py` |
 | `tests/ui_drive.py` | scripted UI sessions with screenshots (`search`, `3d`, `3d-offline`, `numbox`, `osm`, ...) |
 | `tests/test_resort.py` | self-check of the trail and lift import rules on made-up data |
+| `tests/test_dem.py` | self-check of reading where the USGS elevation image really is (its GeoTIFF tags) |
 | `.github/workflows/release.yml` | builds, checks, hashes and attests the exe and attaches it to each release |
 
 ## Releasing
