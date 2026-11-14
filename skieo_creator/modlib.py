@@ -42,12 +42,7 @@ MODS = {
                       about='New lift in the build menu: D-Line R2 gondola station with Omega V cabins. '
                             'Costs and unlocks like the Gondola (World-Class).'),
     'buildings': dict(kind='pak', name="Oof's Alpine Buildings", pak='ZZZ_AlpineBuildings_P',
-                      zip='Alpine_Buildings_Pack.zip',
-                      about='50 new buildings in the build menu, all made for this pack: timber-frame mountain homes, '
-                            'log cabins, A-frames, Swiss chalets, townhouses, modern villas and hotels, inns, grand lodges '
-                            'and two giants (Cabin 1-29, Grand Lodge 1-7, Hotel 1-9, Base Lodge 1-5). Each works and '
-                            'unlocks like the game\'s own Cabin, Grand Lodge, Hotel or Base Lodge; bigger ones hold more '
-                            'guests and cost a little more. Doors at every entrance, snow on the roofs.'),
+                      zip='Alpine_Buildings_Pack.zip', about=''),          # the user: no description (2026-11-14)
 }
 PAK_EXTS = ('.pak', '.ucas', '.utoc')
 OWN_LIFT_MOD = 'ZZZ_LiftMod_P.pak'          # the mod author's all-in-one lift pack already contains both R2 lifts ('lift')

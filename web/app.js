@@ -758,7 +758,7 @@ function renderMods(r) {
       : m.on ? (m.key ? `Installed: press ${esc(m.key)} in game` : 'Installed: in the build menu') : 'Not installed';
     return `<div class="mrow" data-mod="${esc(m.id)}">
       <div class="mi"><h4>${esc(m.name)}</h4>
-        <div class="sub">${esc(m.about)}</div>
+        ${m.about ? `<div class="sub">${esc(m.about)}</div>` : ''}
         <span class="badge${m.on ? '' : ' off'}">${note}</span></div>
       <div class="mbtns">
         <button class="gbtn green" data-on="1" ${m.on || m.included ? 'disabled' : ''} aria-label="Install ${esc(m.name)}">Install</button>
