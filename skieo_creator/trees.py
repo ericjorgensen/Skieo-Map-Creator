@@ -32,7 +32,7 @@ MIN_TREES = 25000
 # their baked obstacles and height textures).
 TREE_SLOPE = 42.0
 MIN_TREE_SLOPE, MAX_TREE_SLOPE = 20.0, 55.0
-TREELINE_FADE, MAX_TREELINE_FADE = 200.0, 1000.0   # m below the treeline over which forest thins out to nothing
+TREELINE_FADE, MAX_TREELINE_FADE = 0.0, 1000.0     # m below the treeline over which forest thins out (0 = sharp)
 CONIFERS = ('Fir', 'Spruce', 'Pine', 'WhitebarkPine', 'Hemlock', 'Larch', 'Sclerophyll')
 BROADLEAF = ('Aspen', 'Birch', 'Maple', 'Oak', 'MountainBirch', 'SouthernBeech', 'SnowGum')
 

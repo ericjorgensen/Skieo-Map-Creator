@@ -2,6 +2,15 @@
 
 Maps made with an older version show **Rebuild recommended** in My Maps: one click on Rebuild gives them the fixes.
 
+## v1.6.2
+- **Real trails and lifts: no more runs painted twice.** OpenStreetMap often has a run drawn twice (a newer piste line
+  next to the older road that carries the run's name, or a second mapper's line): the map got two trails with the same
+  name on top of each other (13 at Stratton). A run is now built once; where only part of it was drawn twice, the rest
+  is kept. Branches of a run that meet stay as they are.
+- Maps made with the real trails and lifts in 1.6.1 show **Rebuild recommended**.
+- **Treeline fade** starts at **sharp** (was 200 m): the forest stops at the treeline. Raise it to thin the forest out
+  below the treeline instead.
+
 ## v1.6.1
 - **Real trails and lifts leave out glades** (skiing through the trees). The game has no tree skiing yet: a glade
   became a bare clearing, or a big empty patch where it was mapped as an area. Left out:

@@ -80,6 +80,9 @@ EDGE_M = 60.0                                   # lift stations must be this far
 CURVE_M = 100.0                                 # trail curve length (the game's are 20-850 m, half 80-150 m)
 MIN_TRAIL_M = 120.0
 MIN_UNNAMED_M = 350.0
+DUP_M = 20.0                                    # a stretch of a run this close to a longer run of the same name...
+DUP_LEN_M = 100.0                               # ...for this long is the same run drawn twice (shorter: branches meeting)
+TWICE = 'the same run drawn twice'
 STATION_M = 120.0                               # an OSM station this close to a terminal names its hub
 HUB_M = 150.0                                   # terminals this close share a hub (the game: 106 m and 110 m seen)
 OFFICE_HUB_M = 200.0                            # ... and with the ticket office (184 m seen)
@@ -427,9 +430,10 @@ def plan(osm, terrain, skip=(), canopy=None):
         if not rings:
             skipped['trail area with an open outline'] += 1
         areas += [dict(osm=r['id'], ids=ring, name=_trail_name(t), diff=diff, tags=t) for ring in rings]
-    trails = _chains(lines, poly, terrain, skipped)
+    trails = _drawn_twice(_chains(lines, poly, terrain, skipped), terrain, skipped)
     named = {tr['name'].lower() for tr in trails if tr['name']}
     runs = [t['P'] for t in trails] + [g['P'] for g in glades if not g['closed'] and g['P'] is not None]
+    bowls = []
     for a in areas:
         if a['name'] and a['name'].lower() in named:
             continue                                       # the same run, also drawn as a line
@@ -439,7 +443,8 @@ def plan(osm, terrain, skip=(), canopy=None):
         elif not a['name'] and any(_inside(b['P'], P).sum() >= 10 for P in runs):
             skipped['unnamed piste area drawn round a run'] += 1     # >= 100 m of a run inside it: the same piste
         else:
-            trails.append(b)
+            bowls.append(b)
+    trails += _bowls_drawn_twice(bowls, skipped)
     tree_check = None
     if canopy is not None:                             # the glades OSM doesn't mark
         try:
@@ -639,6 +644,70 @@ def _chains(lines, poly, terrain, skipped):
     return out
 
 
+def _near(Q, P, d):
+    """which points of Q (n x 2) are within d of the polyline P"""
+    a, ab = P[:-1], np.diff(P, axis=0)
+    ab2 = np.maximum((ab * ab).sum(axis=1), 1e-9)
+    out = np.zeros(len(Q), bool)
+    for i in range(0, len(Q), 256):                    # points x segments, a chunk of points at a time
+        q = Q[i:i + 256, None, :]
+        s = np.clip(((q - a) * ab).sum(axis=2) / ab2, 0.0, 1.0)
+        v = q - (a + s[..., None] * ab)
+        out[i:i + 256] = ((v * v).sum(axis=2) < d * d).any(axis=1)
+    return out
+
+
+def _drawn_twice(corridors, terrain, skipped):
+    """the same run drawn twice in OSM (a newer piste line beside the older road that has the run's name, a route
+    relation's ways next to a separately drawn run): every stretch of DUP_LEN_M or more lying within DUP_M of a longer
+    run of the same name (of any run, for an unnamed one) is cut out, and what is left is kept if still long enough.
+    Shorter overlaps are left alone: that is where the branches of a run meet."""
+    keep = []
+    for t in sorted(corridors, key=lambda t: (t['name'] is None, -t['length_cm'])):
+        lo, hi = t['P'].min(axis=0) - DUP_M, t['P'].max(axis=0) + DUP_M
+        others = [k['P'] for k in keep if (not t['name'] or (k['name'] or '').lower() == t['name'].lower())
+                  and (k['P'].max(axis=0) >= lo).all() and (k['P'].min(axis=0) <= hi).all()]
+        Q = _resample(t['P'], 10.0)
+        on = np.zeros(len(Q), bool)
+        for P in others:
+            on |= _near(Q, P, DUP_M)
+        d, cut, i = _cum(Q), np.zeros(len(Q), bool), 0
+        while i < len(Q):                              # long stretches on another run
+            j = i
+            while j < len(Q) and on[j] == on[i]:
+                j += 1
+            if on[i] and d[j - 1] - d[i] >= DUP_LEN_M:
+                cut[i:j] = True
+            i = j
+        if not cut.any():
+            keep.append(t)
+            continue
+        skipped[TWICE] += 1
+        least, i = (MIN_TRAIL_M if t['name'] else MIN_UNNAMED_M), 0
+        while i < len(Q):                              # what is left of it
+            j = i
+            while j < len(Q) and cut[j] == cut[i]:
+                j += 1
+            if not cut[i] and j - i > 1 and d[j - 1] - d[i] >= least:
+                keep.append(_corridor(t['name'], t['difficulty'], Q[i:j], t['tags'], terrain))
+            i = j
+    return keep
+
+
+def _bowls_drawn_twice(bowls, skipped):
+    """a piste area drawn twice (an older way and a newer multipolygon, say): one lying for the most part inside or
+    on a larger one of the same name (any one, when it is unnamed) is left out"""
+    keep = []
+    for b in sorted(bowls, key=lambda b: (b['name'] is None, -b['radius_cm'])):
+        O = b['P']
+        if any((_inside(k['P'], O) | _near(O, k['P'], DUP_M)).mean() >= 0.8 for k in keep
+               if not b['name'] or (k['name'] or '').lower() == b['name'].lower()):
+            skipped[TWICE] += 1
+        else:
+            keep.append(b)
+    return keep
+
+
 def _corridor(name, diff, P, tags, terrain):
     """a downhill polyline (corner metres) -> the game's chain of quadratic curves"""
     Q = _resample(P, 10.0)
@@ -665,7 +734,7 @@ def _corridor(name, diff, P, tags, terrain):
     night = any(t.get('piste:lit') == 'yes' or t.get('lit') == 'yes' for t in tags)
     return dict(name=name, difficulty=diff, shape='Corridor', curves=curves, length_cm=_length(P) * 100.0,
                 max_slope=max_slope, mid=terrain.world(*_at(P, 0.5)), groomed=groomed, night=night, P=P, width=width,
-                road=any('highway' in t for t in tags), nogl=any(_gladed(t) is False for t in tags))
+                road=any('highway' in t for t in tags), nogl=any(_gladed(t) is False for t in tags), tags=tags)
 
 
 def _bowl(a, poly, terrain):

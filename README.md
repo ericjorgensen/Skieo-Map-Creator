@@ -57,7 +57,8 @@ saves.
      game's own lift and trail records in the starting save (read and written with `engine/gvas_tree.py`, record
      layouts from `data/resort_templates.bin`), the forest leaves their corridors clear, and the map list entry's
      `InitialSave` makes New Game start from that save. Glades are left out: the ones OSM marks, and runs under tree
-     canopy with no cleared corridor in the satellite canopy heights (`canopy.py`).
+     canopy with no cleared corridor in the satellite canopy heights (`canopy.py`). A run drawn twice in OSM is built
+     once.
 4. **Pack and install**: retoc `to-zen` packs a `ZZZ_MC_<name>_P` pak. `install.py` adds the map to the game's
    map list (`ZZZ_Registry_P`) and copies it into `Content/Paks/~mods`.
 

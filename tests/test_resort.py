@@ -155,4 +155,23 @@ assert 'Tree Run' in {t['name'] for t in pl4['trails']} and len(pl4['notes']) ==
 assert (pl3['tree_check'], tagged_only['tree_check'], pl4['tree_check']) == (True, None, False)
 assert builder.recipe({'osm': True}, dict(tree_check=False)) < builder.recipe({'osm': True})    # asks to be rebuilt
 assert resort.chm._quadkey(304, 375) == '0302330222'     # the canopy file over Stratton (zoom-10 tile 304, 375)
+
+# ---- the same run drawn twice (a newer piste line beside the older road with the run's name): built once
+for i, (x, y) in {80: (500, 500), 81: (500, 1500), 82: (505, 500), 83: (505, 1500), 84: (800, 500), 85: (800, 2000),
+                  86: (803, 1500), 87: (803, 2600), 88: (1100, 500), 89: (1100, 2000), 90: (1600, 1500),
+                  91: (1803, 1000), 92: (1821, 2500)}.items():
+    node(i, x, y)
+pistes5 = [dict(type='way', id=wid, nodes=ns, tags=dict({'piste:type': 'downhill', 'piste:difficulty': 'intermediate'},
+                                                         **({'name': nm} if nm else {})))
+           for wid, ns, nm in ((700, [80, 81], 'Twin Run'), (701, [82, 83], 'Twin Run'),        # 5 m apart: one run
+                               (702, [84, 85], 'Half Twin'), (703, [86, 87], 'Half Twin'),      # 500 m of 1100 m shared
+                               (704, [88, 89], 'Fork'), (705, [88, 90], 'Fork'),                # branches: both kept
+                               (706, [91, 92], None))]                                          # unnamed, on Long Run
+pl5 = resort.plan({'elements': list(nodes.values()) + pistes + pistes5}, terrain)
+lens = sorted((t['name'], round(t['length_cm'] / 100)) for t in pl5['trails'])
+assert [n for n, _ in lens].count('Twin Run') == 1 and [n for n, _ in lens].count('Fork') == 2, lens
+half = sorted(L for n, L in lens if n == 'Half Twin')
+assert len(half) == 2 and half[1] == 1500 and 560 <= half[0] <= 600, half        # what is left past the shared part
+assert not any(n.startswith(('Green', 'Blue', 'Black', 'Double')) for n, _ in lens), lens       # the unnamed copy went
+assert pl5['skipped'][resort.TWICE] == 3, pl5['skipped']
 print('resort: all checks passed')
