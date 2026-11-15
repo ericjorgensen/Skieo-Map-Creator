@@ -266,7 +266,7 @@ input[type=range] { width: 100%; accent-color: var(--steel); margin: 6px 0 2px; 
 
 /* ---------------------------------------------------------------- footer, toast, modal */
 footer { padding: 8px 16px 10px; font-size: 11.5px; color: var(--ink-faint); border-top: 2px solid var(--paper-line); }
-.foot-links { display: flex; gap: 14px; margin-bottom: 4px; align-items: baseline; }
+.foot-links { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-bottom: 4px; align-items: baseline; }
 .foot-links .link { color: var(--ink-soft); }
 .ver { margin-left: auto; }
 .attrib .link { color: var(--ink-soft); }

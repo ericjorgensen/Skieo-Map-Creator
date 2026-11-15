@@ -279,4 +279,45 @@ try:
     stuck.set()
 finally:
     U.download, U.swap = real_download, real_swap
+
+# ---- the footer's Check for updates (api.check_update): from the source, newest, newer, offline
+from skieo_creator import api as A  # noqa: E402
+
+app = A.Api()
+assert app.check_update()['state'] == 'source'
+real_release = U.release
+sys.frozen = True
+try:
+    U.release = lambda tag=None: dict(REL, version='9.9.9', notes='- **Trails** fixed', size=180 << 20)
+    r = app.check_update()
+    assert r['ok'] and r['state'] == 'newer' and r['version'] == '9.9.9' and r['size_mb'] == 180, r
+    assert '• Trails fixed' in r['notes'] and app._update['version'] == '9.9.9'
+    U.release = lambda tag=None: dict(REL, version=U.VERSION)
+    assert app.check_update()['state'] == 'latest'
+
+    def unreachable(tag=None):
+        raise net.NetError('Could not download from api.github.com (timed out).')
+    U.release = unreachable
+    r = app.check_update()
+    assert not r['ok'] and 'GitHub could not be reached' in r['error'], r
+finally:
+    U.release = real_release
+    del sys.frozen
+
+# ---- a cancelled download (the job's Cancel) is a cancel, not "the download failed", and leaves nothing behind
+tmpdir = Path(tempfile.mkdtemp(prefix='upd_'))
+real_min = U.MIN_MB
+U.MIN_MB = 0
+try:
+    def cancel_now(n, t):
+        raise net.Cancelled()
+    try:
+        U.download(fake_release(b'MZ' + os.urandom(1 << 17)), tmpdir, cancel_now)
+        raise AssertionError('not cancelled')
+    except net.Cancelled:
+        pass
+    assert not list(tmpdir.iterdir())
+finally:
+    U._open, U.MIN_MB = real_open, real_min
+    tmpdir.rmdir()
 print('update: all checks passed')

@@ -138,6 +138,7 @@ def main():
         from . import api, server
         url, _ = server.start()
         bridge = api.Api()
+        bridge._done = done                                # the footer's Check for updates restarts through it too
         win = webview.create_window(APP_NAME, None if rel else url, html=update.page(rel) if rel else None,
                                     js_api=bridge, width=1440, height=900, min_size=(1100, 680),
                                     background_color='#0b1118', text_select=False)

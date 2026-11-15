@@ -226,6 +226,7 @@ function updateButtons() {
   $('createBtn').disabled = busy() || !S.preview || !ready || !$('name').value.trim() || S.nameBad;
   $('size').disabled = $('sizeOut').disabled = $('osm').disabled = busy();
   document.querySelectorAll('.mact .link').forEach((b) => { b.disabled = busy(); });
+  $('updBtn').disabled = busy();
 }
 
 function renderGame(g) {
@@ -275,7 +276,7 @@ async function prepareGame() {
 /* ------------------------------------------------------------ jobs */
 
 const JOB_TITLES = { prepare: 'Preparing', preview: 'Loading terrain', osm: 'Loading the trails and lifts', create: 'Creating map', install: 'Installing',
-  uninstall: 'Removing', delete: 'Deleting', rebuild: 'Rebuilding', repair: 'Repairing the map list' };
+  uninstall: 'Removing', delete: 'Deleting', rebuild: 'Rebuilding', repair: 'Repairing the map list', update: 'Updating' };
 
 function startJob(j) {
   S.job = j;
@@ -291,9 +292,10 @@ function renderJob() {
   const j = S.job;
   const box = $('jobBox');
   const active = j && (j.state === 'running' || j.state === 'waiting');
-  const anchor = j && j.kind === 'preview' ? $('loadBtn') : j && j.kind === 'osm' ? $('osmRow') : $('createBtn');
+  const anchor = j && j.kind === 'preview' ? $('loadBtn') : j && j.kind === 'osm' ? $('osmRow')
+    : j && j.kind === 'update' ? document.querySelector('.foot-links') : $('createBtn');
   if (box.previousElementSibling !== anchor) anchor.after(box);
-  const inPanel = j && ['preview', 'osm', 'create', 'install', 'rebuild', 'uninstall', 'delete', 'repair', 'prepare'].includes(j.kind);
+  const inPanel = j && ['preview', 'osm', 'create', 'install', 'rebuild', 'uninstall', 'delete', 'repair', 'prepare', 'update'].includes(j.kind);
   box.classList.toggle('hidden', !(active && inPanel));
   box.classList.toggle('waiting', !!(j && j.state === 'waiting'));
   if (active) {
@@ -332,6 +334,7 @@ function jobFinished(j) {
   }
   if (j.kind === 'delete') { toast('Map deleted'); loadMaps(); }
   if (j.kind === 'repair') toast('Map list rebuilt');
+  if (j.kind === 'update') return toast('Updated to v' + r.version + '. Restarting...', false, 10000);
   refreshGame();
 }
 
@@ -837,6 +840,25 @@ async function copyDiagnostics() {
   toast('Diagnostics copied. Paste them where you ask for help.');
 }
 $('diagBtn').onclick = copyDiagnostics;
+
+$('updBtn').onclick = async () => {
+  const b = $('updBtn');
+  if (b.disabled) return;
+  b.disabled = true;
+  b.textContent = 'Checking...';
+  const r = await call('check_update');
+  b.disabled = false;
+  b.textContent = 'Check for updates';
+  if (!r.ok) return toast(r.error, true, 6000);
+  if (r.state === 'source') return toast('Running from the source: update it with git.');
+  if (r.state === 'latest') return toast('You have the newest version (v' + r.version + ').');
+  if (!await confirmBox('Update to v' + r.version + '?',
+    'You have v' + r.current + '.' + (r.notes ? '\n\n' + r.notes : '') + '\n\nThe new version (' + r.size_mb +
+    ' MB) is downloaded from GitHub, checked, and the Map Creator restarts as it.', 'Update', false)) return;
+  const j = await call('install_update');
+  if (!j.ok) return errorBox(j.error);
+  startJob(j);
+};
 
 /* ------------------------------------------------------------ start */
 

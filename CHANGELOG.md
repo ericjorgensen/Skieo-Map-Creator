@@ -10,6 +10,8 @@ Maps made with an older version show **Rebuild recommended** in My Maps: one cli
   Tutorial** started the map without its lifts and trails. Custom maps are no longer tutorial maps.
 - Maps you already installed are fixed the next time the Map Creator opens while the game is closed (no rebuild
   needed). A game you already started without its lifts and trails stays that way: start a New Game on the map.
+- **Check for updates** next to the version number (bottom right): looks for a newer version on GitHub any time, and
+  updates and restarts the Map Creator on yes, with a progress bar and Cancel.
 
 ## v1.7.4
 - **Updates itself.** When it starts, the Map Creator looks for a newer version on GitHub and asks before updating.

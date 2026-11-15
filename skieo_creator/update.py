@@ -58,20 +58,23 @@ def release(tag=None):
                 size=int(exe.get('size') or 0), sums=sums['browser_download_url'], page=str(r.get('html_url') or ''))
 
 
+def is_newer(rel):
+    """rel (from release()) is a newer version than this one"""
+    cur = _version(VERSION)
+    return bool(rel and cur and _version(rel['version']) > cur)
+
+
 def newer():
     """the latest release when it is newer than this exe; None otherwise, when run from the source, with
     SKIEO_NO_UPDATE set, or when GitHub can't be reached (never holds up the start for more than a few seconds)"""
-    if not getattr(sys, 'frozen', False) or os.environ.get('SKIEO_NO_UPDATE'):
-        return None
-    cur = _version(VERSION)
-    if not cur:
+    if not getattr(sys, 'frozen', False) or os.environ.get('SKIEO_NO_UPDATE') or not _version(VERSION):
         return None
     try:
         rel = release()
     except (net.NetError, ValueError, KeyError, TypeError) as ex:
         log.info('update check skipped: %s', ex)
         return None
-    if rel and _version(rel['version']) > cur:
+    if is_newer(rel):
         log.info('update available: %s (this is %s)', rel['version'], VERSION)
         return rel
     return None
@@ -193,7 +196,7 @@ def download(rel, folder, progress=lambda done, total: None):
             raise UpdateError('the download is not the Map Creator')
     except Exception as ex:                   # noqa: BLE001  (never leave a half download behind)
         _unlink(tmp)
-        if isinstance(ex, UpdateError):
+        if isinstance(ex, (UpdateError, net.Cancelled)):
             raise
         raise UpdateError('the download failed (%s)' % _why(ex))
     return tmp

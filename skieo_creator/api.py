@@ -14,12 +14,15 @@ import shutil
 import threading
 import time
 import traceback
+import sys
 import webbrowser
+from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
-from . import APP_NAME, VERSION, biomes, builder, canopy, dem, gamedata, geo, install, modlib, net, paths, resort, server, trees
+from . import (APP_NAME, VERSION, biomes, builder, canopy, dem, gamedata, geo, install, modlib, net, paths, resort, server,
+               trees, update)
 
 log = logging.getLogger(__name__)
 GAME_URL = 'steam://rungameid/' + install.APP_ID
@@ -52,7 +55,7 @@ class UserError(Exception):
 
 def _friendly(e):
     if isinstance(e, (UserError, install.InstallError, gamedata.GameDataError, dem.DemError, net.NetError,
-                      builder.BuildError, resort.ResortError)):
+                      builder.BuildError, resort.ResortError, update.UpdateError)):
         return str(e)
     if isinstance(e, MemoryError):
         return 'Your PC ran out of memory while building the map. Close other programs and try again.'
@@ -106,6 +109,8 @@ class Api:
         self._preview = None
         self._search_rate = net.RateLimit(1.1)
         self._registry_checked = False
+        self._update = None                    # the newer release check_update found
+        self._done = {}                        # main()'s: set 'exe' / 'old' and close the window to restart as them
 
     # ------------------------------------------------------------ plumbing
 
@@ -760,3 +765,47 @@ class Api:
 
     def _busy(self):
         return bool(self._job and self._job.state in ('running', 'waiting'))
+
+    # ------------------------------------------------------------ updates (the footer's Check for updates)
+
+    @_safe
+    def check_update(self):
+        """the newest release on GitHub against this version"""
+        if not getattr(sys, 'frozen', False):
+            return dict(state='source', version=VERSION)
+        try:
+            rel = update.release()
+        except (net.NetError, ValueError, KeyError, TypeError) as ex:
+            log.info('update check failed: %s', ex)
+            raise UserError('GitHub could not be reached to look for updates. Check your internet connection and try '
+                            'again.')
+        if not update.is_newer(rel):
+            return dict(state='latest', version=VERSION)
+        self._update = rel
+        return dict(state='newer', version=rel['version'], current=VERSION, size_mb=max(1, rel['size'] >> 20),
+                    notes=update.notes(rel['notes'], 400))
+
+    @_safe
+    def install_update(self):
+        if not self._update:
+            raise UserError('Look for updates first.')
+        return self._run('update', lambda job: self._do_update(job, self._update))
+
+    def _do_update(self, job, rel):
+        """download, check and swap in the new exe (update.py), then close the window: main() starts the new one"""
+        def progress(n, total):
+            job.cancel.check()
+            job.progress(0.95 * n / total if total else 0.0, 'Downloading %d of %d MB...' % (n >> 20, total >> 20))
+        exe = Path(sys.executable)
+        new = update.download(rel, exe.parent, progress)
+        job.progress(0.97, 'Installing...')
+        self._done['exe'], self._done['old'] = update.swap(new, exe)
+        log.info('updated to %s from the app, restarting', rel['version'])
+        threading.Timer(1.5, self._close).start()          # the page says "Restarting" first
+        return dict(version=rel['version'])
+
+    def _close(self):
+        try:
+            self._window.destroy()
+        except Exception:                                   # noqa: BLE001  (closed already)
+            pass
