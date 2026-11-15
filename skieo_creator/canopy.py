@@ -83,8 +83,9 @@ class _File:
             raise CanopyError('damaged canopy block %s/%d: %s' % (self.key, i, ex))
 
 
-def heights(lat, lon, cancel=net.NEVER, progress=lambda f, t: None):
-    """canopy height in metres at each lat/lon point (0 = no trees, or no data)"""
+def heights(lat, lon, cancel=net.NEVER, progress=lambda f, t: None, nodata=0):
+    """canopy height in metres at each lat/lon point (0 = no trees); `nodata` where the map has no file (inside a
+    file every pixel has a height)"""
     lat = np.clip(np.asarray(lat, np.float64).ravel(), -85.0, 85.0)
     lon = np.asarray(lon, np.float64).ravel()
     mx = np.radians(lon) * R + WORLD / 2                               # metres from the west edge of the world map
@@ -96,9 +97,10 @@ def heights(lat, lon, cancel=net.NEVER, progress=lambda f, t: None):
     files, jobs = {}, {}
     for t in set(zip(tx.tolist(), ty.tolist())):
         files[t] = f = _File(t[0], t[1], cancel)
-        if not f.ok:
-            continue
         sel = np.nonzero((tx == t[0]) & (ty == t[1]))[0]
+        if not f.ok:
+            out[sel] = nodata
+            continue
         col = np.clip(((mx[sel] - WORLD / 2 - f.x0) / f.px).astype(np.int64), 0, f.w - 1)
         row = np.clip(((f.y0 - (WORLD / 2 - my[sel])) / f.px).astype(np.int64), 0, f.w - 1)
         blk = (row // f.bh) * f.across + col // f.bw

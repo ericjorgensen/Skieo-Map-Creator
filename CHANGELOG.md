@@ -2,6 +2,14 @@
 
 Maps made with an older version show **Rebuild recommended** in My Maps: one click on Rebuild gives them the fixes.
 
+## v1.7.2
+- **Real trails and lifts: the forest round the resort is the real one.** The Map Creator plants its own forest
+  everywhere below the treeline, and OpenStreetMap often maps open bowls only as the runs through them (Vail's back
+  bowls are), so they came out as narrow trails cut through a full forest. Now, within 300 m of the runs, glades and
+  lifts, the trees follow the real tree cover from the satellite tree heights: open bowls, meadows and old burns stay
+  open, glades keep their own sparse trees, and the forest further out is as before.
+- Maps made with the real trails and lifts show **Rebuild recommended**: Rebuild gives them the real forest.
+
 ## v1.7.1
 - **US maps: the terrain is where it really is.** The USGS elevation service sends a taller area than the one asked
   for, and the Map Creator stretched it over the map anyway: the terrain of every US map came out squeezed north-south

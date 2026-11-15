@@ -74,6 +74,25 @@ assert resort.plan(osm, terrain, skip={100})['lifts'] == []
 mask, res = resort.clear_mask(pl, size)
 assert mask[int(2000 / res), int(2000 / res)] and mask[int(2000 / res), int(1820 / res)] and not mask[int(2000 / res), int(3000 / res)]
 
+
+# ---- the forest round the resort follows the real tree cover: open ground east of the lift (x 2050-3500 m), trees
+# 20 m tall elsewhere; the generated forest (1) from COVER_BUF_M + COVER_FEATHER_M beyond the lift and the run
+def bowl_open(la, lo):
+    x, y = terrain.xy(la, lo)
+    return np.where((x > 2050) & (x < 3500) & (y > 1200) & (y < 2400), 0, 20).astype(np.uint8)
+
+
+cov = resort.tree_cover(pl, terrain, bowl_open)
+w = {x: float(cov[int(1800 / fr.sp), int(x / fr.sp)]) for x in (1700, 2150, 2375, 2600)}
+assert w[2150] < 0.05 and 0.3 < w[2375] < 0.7 and w[2600] > 0.999 and w[1700] > 0.95, w
+assert cov[int(300 / fr.sp), int(300 / fr.sp)] == 1.0 and cov.dtype == np.float32 and cov.shape == H.shape
+assert resort.tree_cover(dict(trails=[], glades=[], lifts=[]), terrain, bowl_open) is None
+unknown = resort.tree_cover(pl, terrain, lambda la, lo: np.full(np.size(la), resort.COVER_NODATA, np.uint8))
+assert float(unknown.min()) == 1.0, 'no canopy data: the generated forest stays (never "no trees")'
+edge = resort.tree_cover(dict(trails=[dict(P=np.array([[30.0, 500.0], [30.0, 3500.0]]), shape='Corridor')], glades=[],
+                              lifts=[]), terrain, lambda la, lo: np.zeros(np.size(la), np.uint8))
+assert float(edge[int(2000 / fr.sp), 0]) < 0.01, 'open ground by a run at the map edge stays open up to the edge'
+
 # ---- found in review: station tags survive the tagless 'out skel' copy; multipolygon piste areas; unnamed areas drawn
 # round a run; the base stays inside the square's margin; a timed-out Overpass answer is not accepted
 for i, (x, y) in {10: (3000, 1500), 11: (3400, 1500), 12: (3400, 1900), 13: (3000, 1900),

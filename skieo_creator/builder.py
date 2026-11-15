@@ -25,7 +25,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw
 
-from . import canopy, gamedata, resort, shells, trees
+from . import canopy, gamedata, net, resort, shells, trees
 from .engine import collision_write as cw
 from .engine import component_bounds as cb
 from .engine import frame as FR
@@ -55,8 +55,9 @@ ENTRY_FORMAT = 3
 #   7 (1.1.6): the terrain textures' grid scale is the map's own (was the donor's: wrong lighting, lines at tile borders)
 #   8 (1.4.0): for the full game; real size only (no Diorama variant in the map list)
 RECIPE = 8
-RECIPE_OSM = 10                                   # with the real trails and lifts: 9 (1.6.1) without the glades,
-                                                  # 10 (1.6.2) a run drawn twice in OSM built once
+RECIPE_OSM = 11                                   # with the real trails and lifts: 9 (1.6.1) without the glades,
+                                                  # 10 (1.6.2) a run drawn twice in OSM built once, 11 (1.7.2) the
+                                                  # forest round the resort follows the real tree cover
 BUILD_LOCK = threading.Lock()                     # frame.py holds the map frame globally: one build at a time
 
 
@@ -542,7 +543,7 @@ def _build(spec, dem, game, out_dir, cancel, progress):
     H, fr = heights(dem, spec['size_m'])
     H = fit_edges(H, mf.wall_stations(gd['umap'], gd['uexp']))
     peak_m, base_m = fr.hmin + 65534 * fr.sc, fr.hmin
-    pl = clear = avoid = None
+    pl = clear = avoid = cover = None
     if spec.get('osm'):                    # the real resort's trails and lifts (OpenStreetMap data saved with the map)
         progress(0.01, 'Laying out the real trails and lifts...')
         try:
@@ -557,6 +558,13 @@ def _build(spec, dem, game, out_dir, cancel, progress):
         clear = resort.clear_mask(pl, spec['size_m'])
         idx = np.minimum((np.arange(G) * fr.sp / clear[1]).astype(int), clear[0].shape[0] - 1)
         avoid = clear[0][np.ix_(idx, idx)]
+        if pl['tree_check']:               # the forest round the resort as it really is (open bowls, glades' trees)
+            try:
+                cover = resort.tree_cover(pl, terrain, lambda la, lo: canopy.heights(
+                    la, lo, cancel, lambda f, t: progress(0.015, t), nodata=resort.COVER_NODATA))
+            except (net.NetError, canopy.CanopyError, OSError) as ex:
+                log.warning('real tree cover failed: %s', ex)
+                pl['tree_check'] = False   # built with the generated forest: shows "Rebuild recommended"
     row, col = base_site(H, fr, *spec['base_rc'], radius=40, avoid=avoid)
     base_h = int(H[row, col])
     cancel.check()
@@ -567,7 +575,7 @@ def _build(spec, dem, game, out_dir, cancel, progress):
         H, fr.hmin, fr.sp, fr.sc, spec['biome'], spec['treeline'], spec['valley'], donors, game.species(),
         game.biome_species(spec['biome']), spec['seed'], max_trees=int(spec.get('max_trees', trees.DEFAULT_TREES)),
         tree_slope=float(spec.get('tree_slope', trees.TREE_SLOPE)), treeline_fade=float(spec.get('treeline_fade', 0.0)),
-        clear=clear)
+        clear=clear, cover=cover)
     obs_ua, obs_ue = obstacles_assets(gd, recs, table, hdr_tail, fr)
     obs_ua = names.rename(obs_ua, 'obs', '/Game/Generated/DA_BakedObstacles_' + DONOR_MAP, names.p_obs)
     cancel.check()

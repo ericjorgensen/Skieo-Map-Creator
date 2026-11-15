@@ -97,6 +97,18 @@ GLADE_STEP = 5.0                                # along the line (m)
 GLADE_OFFSETS = np.arange(-15.0, 15.01, 2.5)    # how far beside its OSM line a cleared run is looked for (m)
 GLADE_SHARE = 0.3                               # a run under trees for this share of its best path is a glade
 GLADE_COVER = 0.35                              # a piste area with this share of tree canopy is a glade
+# the forest round the resort follows the real tree cover (satellite canopy heights): open bowls, meadows and old burns
+# stay open and glades keep their own sparse trees, where the generated forest fills everything below the treeline
+# (Vail's back bowls are in OSM as runs only, so they came out as narrow trails through a full forest)
+COVER_BUF_M = 300.0                             # the real cover this far round the runs, glades and lifts...
+COVER_FEATHER_M = 150.0                         # ...blending into the generated forest over this far beyond
+COVER_STEP_M = 5.0                              # canopy samples about this far apart
+COVER_WIN_M = 25.0                              # tree cover measured over about this window
+COVER_TREE_M = 3.0                              # canopy this tall is a tree crown
+COVER_FULL = 0.5                                # this share of the ground under crowns is full forest
+COVER_ROWS = 128                                # grid rows per canopy call (memory)
+COVER_NODATA = 255                              # canopy height meaning "no data" (canopy.heights(nodata=...)): there
+                                                # the generated forest stays, never "no trees"
 
 
 class ResortError(Exception):
@@ -833,6 +845,65 @@ def clear_mask(pl, size_m, res_m=4.0):
         for x, y in pts:
             disc(x, y, 22.0 / res_m)
     return np.array(img, dtype=bool), res_m
+
+
+def _box_sum(a, r):
+    """sum over the (2r+1)^2 window round each cell (zeros beyond the edges)"""
+    k = 2 * r + 1
+    c = np.zeros((a.shape[0] + 2 * r + 1, a.shape[1] + 2 * r + 1))
+    c[1:, 1:] = np.pad(a.astype(np.float64), r).cumsum(0).cumsum(1)
+    return c[k:, k:] - c[:-k, k:] - c[k:, :-k] + c[:-k, :-k]
+
+
+def tree_cover(pl, terrain, canopy):
+    """-> the share (0..1) of the generated forest's density to keep at each terrain vertex (row = y): the real tree
+    cover (canopy heights, lat, lon -> m, COVER_NODATA where unknown) within COVER_BUF_M of the runs, glades and lifts,
+    blending into 1 over COVER_FEATHER_M beyond; None when the plan has nothing to go round"""
+    n, sp = terrain.n, terrain.sp
+    img = Image.new('L', (n, n), 0)
+    dr = ImageDraw.Draw(img)
+    rad = (COVER_BUF_M + COVER_FEATHER_M / 2) / sp      # the blur below ramps this edge over COVER_FEATHER_M
+
+    def px(P):
+        return [(float(x) / sp, float(y) / sp) for x, y in P]
+
+    lines = [(t['P'], t['shape'] == 'Bowl') for t in pl['trails']] + \
+            [(g['P'], g['closed']) for g in pl['glades'] if g['P'] is not None] + \
+            [([p[:2] for p in l['wp']], False) for l in pl['lifts']]
+    if not lines:
+        return None
+    for P, area in lines:
+        pts = px(P)
+        if area and len(pts) > 2:
+            dr.polygon(pts, fill=1)
+        if len(pts) > 1:
+            dr.line(pts, fill=1, width=max(1, int(round(2 * rad))), joint='curve')
+        for x, y in (pts[0], pts[-1]):
+            dr.ellipse([x - rad, y - rad, x + rad, y + rad], fill=1)
+    fr = max(1, int(round(COVER_FEATHER_M / sp / 2)))
+    near = _box_sum(np.array(img, np.float64), fr) / _box_sum(np.ones((n, n)), fr)     # (only the part inside the map)
+    sel = near > 1e-3
+    k = max(1, int(round(sp / COVER_STEP_M)))           # samples per vertex cell, each way
+    off = ((np.arange(k) + 0.5) / k - 0.5) * sp
+    under = np.zeros((n, n))                            # share of a cell's samples under tree crowns
+    known = np.zeros((n, n), bool)                      # cells with canopy data
+    for r0 in range(0, n, COVER_ROWS):
+        r, c = np.nonzero(sel[r0:r0 + COVER_ROWS])
+        if not len(r):
+            continue
+        r = r + r0
+        xs = np.repeat(c[:, None] * sp + off, k, axis=1).ravel()
+        ys = np.tile(r[:, None] * sp + off, (1, k)).ravel()
+        la, lo = terrain.latlon(xs, ys)
+        h = np.asarray(canopy(la, lo)).reshape(len(r), k * k)
+        ok = h != COVER_NODATA
+        cnt = ok.sum(axis=1)
+        under[r, c] = ((h >= COVER_TREE_M) & ok).sum(axis=1) / np.maximum(cnt, 1)
+        known[r, c] = cnt > 0
+    rw = max(1, int(round(COVER_WIN_M / sp / 2)))
+    cells = _box_sum(known, rw)
+    real = np.where(cells > 0, np.clip(_box_sum(under, rw) / np.maximum(cells, 1.0) / COVER_FULL, 0.0, 1.0), 1.0)
+    return (1.0 - near * (1.0 - real)).astype(np.float32)
 
 
 # ---------------------------------------------------------------- the save

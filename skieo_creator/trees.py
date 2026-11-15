@@ -207,9 +207,10 @@ def _target_species(name, rule, available):
 
 
 def forest(H, hmin, sp, sc, biome, treeline, valley, donors, species, biome_species, seed, max_trees=DEFAULT_TREES,
-           tree_slope=TREE_SLOPE, treeline_fade=0.0, clear=None):
+           tree_slope=TREE_SLOPE, treeline_fade=0.0, clear=None, cover=None):
     """-> (record bytes, table bytes, header tail, {species: count})
-    donors: {'mrg': skob, 'sb': skob}; species: {short name: [(size, state, trunk)]}; biome_species: short names"""
+    donors: {'mrg': skob, 'sb': skob}; species: {short name: [(size, state, trunk)]}; biome_species: short names;
+    cover: optional share (0..1 per vertex) of the forest density to keep (the real tree cover round a resort)"""
     rng = np.random.default_rng(seed)
     spec = biomes.BIOMES[biome]
     hdr_tail = donors['mrg']['hdr'][16:]
@@ -219,6 +220,8 @@ def forest(H, hmin, sp, sc, biome, treeline, valley, donors, species, biome_spec
     weight = None
     if treeline > 0 and treeline_fade > 0:                 # forest thins out over the last treeline_fade m below it
         weight = np.clip((treeline - ((H.astype(np.float64) + 32768) * sc + hmin)) / treeline_fade, 0.0, 1.0)
+    if cover is not None:
+        weight = cover if weight is None else weight * cover
     x, y, z = plant(H, sp, sc, donors['mrg']['records'], rng, mask, max_trees=max_trees, tree_slope=tree_slope,
                     weight=weight, clear=clear)
     m = len(x)
