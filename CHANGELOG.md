@@ -2,6 +2,20 @@
 
 Maps made with an older version show **Rebuild recommended** in My Maps: one click on Rebuild gives them the fixes.
 
+## v1.7.6
+- **Mod Library: two new mods**, each on its own (no cheat menu needed) or together with it:
+  - **Oof's Anarchy**: build anywhere. **Ctrl+A** switches it on and off in game. While it is on, the buildings and
+    lifts you place or move ignore slopes, ground type, trees and rocks, and other buildings, and a badge under the
+    top bar says so. It is off each time the game starts.
+  - **Oof's Speed Control**: speed buttons from 1x to 100x under the game's own (top right). Click one to run the game
+    that fast, click the lit one again to go back to 1x. They show while the game shows its top bar.
+- **No more empty window when WebView2 is broken.** The Map Creator's window is drawn by Microsoft Edge WebView2, and
+  when WebView2 could not start (for example a copy that Windows still lists but whose files are gone, which tools
+  that remove Microsoft Edge often leave behind), the window just stayed empty. Now the Map Creator notices, tries
+  once more with a fresh browser profile and graphics acceleration off (and keeps starting that way if that helped),
+  and otherwise says what went wrong and how to repair WebView2.
+- The log now records the Windows version and display language at each start.
+
 ## v1.7.5
 - **Real trails and lifts: no more empty resort after "Skip Tutorial".** Custom maps were marked as tutorial maps (left
   over from the demo days), and the game treats the first tutorial map in its list as THE tutorial map. In regions

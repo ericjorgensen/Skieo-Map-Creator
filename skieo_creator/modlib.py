@@ -33,6 +33,14 @@ MODS = {
                          'force the weather and change the climate (buried in snow? turn snowfall down), max out '
                          'your reputation to unlock everything, spawn guests, switch off accidents, breakdowns and '
                          'tired staff, and build anywhere.'),
+    'anarchy': dict(kind='lua', folder='OofsAnarchy', name="Oof's Anarchy", key='Ctrl+A',
+                    about='Build anywhere: Ctrl+A switches it on and off in game. While it is on, the buildings and '
+                          'lifts you place or move ignore slopes, ground type, trees and rocks, and other buildings. '
+                          'A badge under the top bar shows when it is on.'),
+    'speed': dict(kind='lua', folder='OofsSpeed', name="Oof's Speed Control",
+                  note='Installed: speed buttons under the top bar in game',
+                  about="Speed buttons from 1x to 100x under the game's own (top right): click one to run the game "
+                        'that fast, click it again to go back to 1x. Past 10x, guests and lifts may glitch.'),
     'r2six': dict(kind='pak', name='Doppelmayr D-Line R2 Six', pak='ZZZ_DoppelmayrR2Six_P', lift=True,
                   zip='DLine_R2_Six_LiftMod.zip',
                   about='New lift in the build menu: D-Line R2 glass station, six-seat bubble chairs, Doppelmayr '
@@ -99,7 +107,7 @@ def status(game_folder):
     mods = []
     for k, m in MODS.items():
         d = dict(id=k, name=m['name'], kind=m['kind'], about=m['about'], on=_is_on(game_folder, m),
-                 key=m.get('key'), included=m.get('lift', False) and own_lifts)
+                 key=m.get('key'), note=m.get('note'), included=m.get('lift', False) and own_lifts)
         mods.append(d)
     return dict(ue4ss=(b / 'dwmapi.dll').is_file(), ours=(b / 'ue4ss' / MARKER).is_file(), mods=mods)
 

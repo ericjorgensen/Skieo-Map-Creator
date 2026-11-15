@@ -233,8 +233,12 @@ local function relax(actor)
   if not (ok and valid(v)) then return end
   local key = v:GetFullName()
   if not relaxed[key] then
-    local o = {}
-    for k in pairs(RELAXED) do o[k] = v[k] end
+    local o, already = {}, true
+    for k, want in pairs(RELAXED) do
+      o[k] = v[k]
+      if o[k] ~= want then already = false end
+    end
+    if already then return end                   -- Oof's Anarchy relaxed them: it puts them back; look again later
     relaxed[key] = { comp = v, values = o }
   end
   for k, want in pairs(RELAXED) do if v[k] ~= want then v[k] = want end end
