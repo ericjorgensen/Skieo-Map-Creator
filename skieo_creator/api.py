@@ -105,6 +105,7 @@ class Api:
         self._gd = None
         self._preview = None
         self._search_rate = net.RateLimit(1.1)
+        self._registry_checked = False
 
     # ------------------------------------------------------------ plumbing
 
@@ -213,6 +214,14 @@ class Api:
         running = install.game_running()
         if not running:
             modlib.refresh(folder)                      # lift packs: keep their building table in step with the game
+            if not self._registry_checked and not self._busy():
+                self._registry_checked = True           # once a session: the map list of maps installed by an older
+                try:                                    # version (e.g. tutorial maps, see install.custom_entry)
+                    if self._game.registry_stale():
+                        self._game.rebuild_registry()
+                        log.info('map list rebuilt for this version')
+                except Exception as ex:                 # never let this break the status check
+                    log.warning('map list rebuild failed: %s', ex)
         return dict(found=True, folder=str(folder), build=build, running=running, ready=self._gd.ready())
 
     @_safe

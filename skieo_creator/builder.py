@@ -517,7 +517,8 @@ def entry_spec(names, display, biome, stats, start_save=False):
             'initial_save': {'package': names.p_is, 'object': names.is_new},
             'set': [['Map', 'ref', names.p_map, names.mapn], ['MapPreview', 'ref', names.p_pre, prev]]
                    + ([['InitialSave', 'initial_save']] if start_save else []) +
-                   [['TutorialInitialSave', 'initial_save'], ['bIsTutorialMap', 'hex', '01'],
+                   # never a tutorial map (install.custom_entry says why); its tutorial start is the same save
+                   [['TutorialInitialSave', 'initial_save'], ['bIsTutorialMap', 'remove'],
                     # custom maps are real size only: no tabletop variant for Map size "Diorama" (Advanced options;
                     # the template's would be Soda Springs')
                     ['DioramaVariantMap', 'ref', 'None', 'None'], ['DioramaTutorialInitialSave', 'remove'],

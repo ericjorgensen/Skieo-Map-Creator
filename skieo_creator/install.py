@@ -31,6 +31,7 @@ FORMAT = 1
 FORMATS = (1, 2, 3)    # 2 = the package adds a new map entry ('append'), which installers before 2 can't do;
                        # 3 = entries are found by map key (registry layout of game build 25996759 and later)
 REGISTRY_PAK = 'ZZZ_Registry_P'
+REGISTRY_VERSION = 2   # what custom_entry() makes of the entries; 2 (1.7.5): never a tutorial map
 STATE_NAME = 'skimap_installer.json'
 ENGINE = 'UE5_7'
 NO_WINDOW = 0x08000000 if os.name == 'nt' else 0
@@ -325,7 +326,7 @@ class Game:
         try:
             ua, ue, so = extract_registry(self.paks, work)
             for m in maps:
-                ua, ue = apply_entry(ua, ue, real_size(m['entry']))
+                ua, ue = apply_entry(ua, ue, custom_entry(m['entry']))
             legacy = work / 'legacy'
             d = legacy / 'SkiResortSimulator' / 'Content' / 'Data'
             d.mkdir(parents=True)
@@ -345,6 +346,13 @@ class Game:
                 os.replace(str(f) + '.part', f)
         finally:
             shutil.rmtree(work, ignore_errors=True)
+        st['registry'] = REGISTRY_VERSION
+        self.save_state(st)
+
+    def registry_stale(self):
+        """the installed map list was built by an older version (custom_entry changed since): rebuild it once"""
+        st = self.state()
+        return bool(st['maps']) and st.get('registry', 1) < REGISTRY_VERSION
 
 
 def run_retoc(args):
@@ -428,12 +436,18 @@ def import_index(ua, object_name):
     raise InstallError('"%s" not found in the game\'s map list -- the game may have changed.' % object_name)
 
 
-def real_size(spec):
-    """Custom maps are real size only, also ones packaged by older versions: no Diorama variant (Map size in Advanced
-    options), which would be the copied entry's -- another resort's tabletop map."""
-    keep = [i for i in spec['set'] if i[0] not in ('DioramaVariantMap', 'DioramaTutorialInitialSave')]
+def custom_entry(spec):
+    """What every custom map's entry is, also ones packaged by older versions:
+    - real size only: no Diorama variant (Map size in Advanced options), which would be the copied entry's -- another
+      resort's tabletop map;
+    - never a tutorial map (bIsTutorialMap, set up to 1.7.4, from the demo days): New Game takes the first tutorial
+      map of the list as THE tutorial map, so in a region without one of the game's own (Canadian Rockies, Scandes ...)
+      a custom map became it, offered the tutorial on every start, and its "Skip Tutorial" starts that map without its
+      starting save: no real lifts and trails."""
+    keep = [i for i in spec['set'] if i[0] not in ('DioramaVariantMap', 'DioramaTutorialInitialSave', 'bIsTutorialMap')]
     return dict(spec, add_names=spec['add_names'] + ['None'],
-                set=keep + [['DioramaVariantMap', 'ref', 'None', 'None'], ['DioramaTutorialInitialSave', 'remove']])
+                set=keep + [['DioramaVariantMap', 'ref', 'None', 'None'], ['DioramaTutorialInitialSave', 'remove'],
+                            ['bIsTutorialMap', 'remove']])
 
 
 def apply_entry(ua, ue, spec):

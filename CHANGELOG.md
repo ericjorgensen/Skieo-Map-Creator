@@ -2,6 +2,15 @@
 
 Maps made with an older version show **Rebuild recommended** in My Maps: one click on Rebuild gives them the fixes.
 
+## v1.7.5
+- **Real trails and lifts: no more empty resort after "Skip Tutorial".** Custom maps were marked as tutorial maps (left
+  over from the demo days), and the game treats the first tutorial map in its list as THE tutorial map. In regions
+  listed before Tahoe (Canadian Rockies, Scandes, Alps, Japan, Korea, China, Australia, New Zealand, the Andes,
+  Hawaii), that was a custom map instead of Sugar Bowl: New Game offered the tutorial on every start, and **Skip
+  Tutorial** started the map without its lifts and trails. Custom maps are no longer tutorial maps.
+- Maps you already installed are fixed the next time the Map Creator opens while the game is closed (no rebuild
+  needed). A game you already started without its lifts and trails stays that way: start a New Game on the map.
+
 ## v1.7.4
 - **Updates itself.** When it starts, the Map Creator looks for a newer version on GitHub and asks before updating.
   On yes it downloads the new exe (with a progress bar), checks it against the release's SHA-256, puts it in place of
