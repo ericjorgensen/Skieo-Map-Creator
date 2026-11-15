@@ -443,7 +443,7 @@ def main():
     if real_creator_open():
         sys.exit('A Map Creator is open on this PC: close it first, or set LOCALAPPDATA to a scratch folder.')
     paths.setup_logging()
-    release_webview_profile()
+    release_webview_profile(paths.WEBVIEW)
     if SCEN == '3d-offline':
         for spec in server.LAYERS.values():
             spec['url'] = 'https://tiles.unreachable.invalid/{z}/{x}/{y}.png'

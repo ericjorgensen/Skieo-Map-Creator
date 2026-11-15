@@ -228,12 +228,12 @@ def swap(new, exe):
     return exe, old
 
 
-def start(exe):
+def start(exe, *args):
     """start the new exe as a fresh program (a packaged exe started from another one would otherwise take over that
     one's unpacked files, which are deleted as it exits)"""
     env = {k: v for k, v in os.environ.items() if not k.upper().startswith(('_MEI', '_PYI'))}
     env['PYINSTALLER_RESET_ENVIRONMENT'] = '1'
-    subprocess.Popen([str(exe)], cwd=str(Path(exe).parent), env=env, close_fds=True,
+    subprocess.Popen([str(exe), *args], cwd=str(Path(exe).parent), env=env, close_fds=True,
                      creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP)
 
 

@@ -1,12 +1,16 @@
 """Start the Map Creator window."""
 import ctypes
+import locale
 import logging
 import os
+import platform
+import shutil
 import subprocess
 import sys
 import threading
 import time
 import traceback
+import urllib.request
 import webbrowser
 
 from . import APP_NAME, VERSION, paths, update
@@ -15,6 +19,14 @@ log = logging.getLogger('skieo_creator')
 WEBVIEW2_GUID = '{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
 WEBVIEW2_URL = 'https://go.microsoft.com/fwlink/p/?LinkId=2124703'
 MB_OK, MB_YESNO, MB_ICONERROR, MB_ICONWARNING, MB_ICONINFORMATION, IDYES = 0x0, 0x4, 0x10, 0x30, 0x40, 6
+MB_SETFOREGROUND = 0x10000
+SAFE_START = '--safe-start'      # the second try after the window stayed blank (watch_load)
+LOAD_S = 25                      # the page normally loads in 1-3 s
+NO_GPU = '--disable-gpu'         # WebGL then draws with Windows' software renderer: the 3D view still works
+BLANK = ('The Map Creator window stays empty: Microsoft Edge WebView2, which draws it, %s.\n\n'
+         'Repairing WebView2 usually fixes this: Windows Settings > Apps > Microsoft Edge WebView2 Runtime > Modify. '
+         'If it is not listed there, install it from Microsoft. Open the download page now?\n\n'
+         'Details were written to:\n%s')
 
 
 def message(text, flags=MB_OK | MB_ICONERROR):
@@ -72,10 +84,10 @@ def style_titlebar():
         pass
 
 
-def release_webview_profile():
+def release_webview_profile(profile):
     """WebView2 processes of a crashed earlier run can keep the browser profile locked, and the window would then stay
     blank ('resource in use'). Only one creator runs at a time (single_instance), so any such process is an orphan."""
-    lock = paths.WEBVIEW / 'EBWebView' / 'lockfile'
+    lock = profile / 'EBWebView' / 'lockfile'
     if not lock.exists():
         return
     try:
@@ -104,6 +116,72 @@ def release_webview_profile():
             return
 
 
+class InitFailure(logging.Handler):
+    """pywebview only logs it when WebView2 fails to start, and the window then stays blank"""
+
+    def __init__(self):
+        super().__init__(logging.ERROR)
+        self.text = None
+
+    def emit(self, record):
+        if 'WebView2 initialization failed' in record.getMessage():
+            self.text = record.getMessage()
+
+
+def _why(failure):
+    if failure.text:
+        lines = [l.strip() for l in failure.text.splitlines()[1:] if l.strip()]
+        return 'did not start (%s)' % (lines[0][:240] if lines else 'no reason given')
+    return 'did not show its page within %d seconds' % LOAD_S
+
+
+def _probe(url):
+    """for the log: does the page's own little web server answer (a security program blocking it looks the same)"""
+    try:
+        with urllib.request.build_opener(urllib.request.ProxyHandler({})).open(url, timeout=5) as r:
+            return 'answers (%d)' % r.status
+    except Exception as e:
+        return 'does not answer (%s)' % e
+
+
+def watch_load(win, url, failure, retry, safe, done, settings):
+    """In a thread once the window is up. If WebView2 failed to start or the page never loaded, the window would stay
+    blank for good. The first time, the Map Creator starts again with its own fresh browser profile and graphics
+    acceleration off (and starts that way from then on if it helped); blank after that, it says why and how to fix it."""
+    t0 = time.monotonic()
+    while not failure.text and time.monotonic() - t0 < LOAD_S:
+        if win.events.loaded.wait(0.25):
+            log.info('page loaded in %.1f s', time.monotonic() - t0)
+            if retry:
+                settings.set(safe_start=True)
+            return
+        if win.events.closed.is_set():
+            return
+    why = _why(failure)
+    log.error('the window stayed blank: WebView2 %s; the page server %s', why, _probe(url))
+    if not safe:
+        done['retry'] = True
+    elif message(BLANK % (why, paths.LOGS / 'creator.log'), MB_YESNO | MB_ICONWARNING | MB_SETFOREGROUND) == IDYES:
+        webbrowser.open(WEBVIEW2_URL)
+    if not win.events.closed.is_set():
+        win.destroy()
+
+
+def restart(*args):
+    """start this program again as a new process: the packaged exe, or run.py from source"""
+    if getattr(sys, 'frozen', False):
+        update.start(sys.executable, *args)
+    else:
+        update.start(sys.executable, os.path.abspath(sys.argv[0]), *args)
+
+
+def _language():
+    try:
+        return locale.windows_locale.get(ctypes.windll.kernel32.GetUserDefaultUILanguage(), '?')
+    except Exception:
+        return '?'
+
+
 def _excepthook(kind, value, tb):
     log.critical('unhandled error:\n%s', ''.join(traceback.format_exception(kind, value, tb)))
 
@@ -112,7 +190,9 @@ def main():
     paths.setup_logging()
     sys.excepthook = _excepthook
     threading.excepthook = lambda a: _excepthook(a.exc_type, a.exc_value, a.exc_traceback)
-    log.info('%s %s starting (frozen=%s)', APP_NAME, VERSION, getattr(sys, 'frozen', False))
+    retry = SAFE_START in sys.argv
+    log.info('%s %s starting (frozen=%s%s) on Windows %s, language %s', APP_NAME, VERSION, getattr(sys, 'frozen', False),
+             ', second try after a blank window' if retry else '', platform.version(), _language())
     if os.name != 'nt':
         message('The Map Creator runs on Windows only.')
         return 1
@@ -126,9 +206,16 @@ def main():
                    MB_YESNO | MB_ICONWARNING) == IDYES:
             webbrowser.open(WEBVIEW2_URL)
         return 1
-    release_webview_profile()
+    safe = retry or bool(paths.Settings().get('safe_start'))
+    profile = paths.WEBVIEW_SAFE if safe else paths.WEBVIEW
+    release_webview_profile(profile)
+    if retry:
+        shutil.rmtree(profile, ignore_errors=True)         # a fresh browser profile
+    if safe:
+        os.environ['WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS'] = NO_GPU     # added to pywebview's own arguments
+        log.info('safe start: own browser profile, graphics acceleration off')
     update.cleanup()                                       # what an earlier update left next to the exe
-    rel = update.newer()                                   # a newer release on GitHub: ask before the window opens
+    rel = None if retry else update.newer()                # a newer release on GitHub: ask before the window opens
     if rel and message(update.prompt(rel), MB_YESNO | MB_ICONINFORMATION) != IDYES:
         log.info('update to %s: not now', rel['version'])
         rel = None
@@ -139,13 +226,18 @@ def main():
         url, _ = server.start()
         bridge = api.Api()
         bridge._done = done                                # the footer's Check for updates restarts through it too
+        failure = InitFailure()
+        logging.getLogger('pywebview').addHandler(failure)
         win = webview.create_window(APP_NAME, None if rel else url, html=update.page(rel) if rel else None,
                                     js_api=bridge, width=1440, height=900, min_size=(1100, 680),
                                     background_color='#0b1118', text_select=False)
         bridge._attach(win)
         win.events.shown += style_titlebar
-        webview.start(update.run if rel else None, (win, rel, url, done, message) if rel else None,
-                      gui='edgechromium', private_mode=False, storage_path=str(paths.WEBVIEW),
+        if rel:
+            task, args = update.run, (win, rel, url, done, message)
+        else:
+            task, args = watch_load, (win, url, failure, retry, safe, done, bridge._settings)
+        webview.start(task, args, gui='edgechromium', private_mode=False, storage_path=str(profile),
                       debug='--debug' in sys.argv)
     except Exception:
         log.critical('window failed:\n%s', traceback.format_exc())
@@ -160,5 +252,14 @@ def main():
         except OSError as ex:
             log.error('the new version would not start: %s', ex)
             message(update.undo(done['exe'], done['old'], ex))
+    elif done.get('retry'):                                # blank window: a second try (watch_load)
+        ctypes.windll.kernel32.CloseHandle(single_instance.handle)
+        try:
+            restart(SAFE_START)
+            log.info('started again for a second try')
+        except OSError as ex:
+            log.error('could not start again: %s', ex)
+            message('The Map Creator window stayed empty, and the Map Creator could not start again by itself (%s). '
+                    'Please start it again.' % ex)
     log.info('closed')
     return 0

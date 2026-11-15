@@ -16,6 +16,7 @@ MAPS = APP_DIR / 'maps'
 LOGS = APP_DIR / 'logs'
 TOOLS = APP_DIR / 'tools'
 WEBVIEW = APP_DIR / 'webview'
+WEBVIEW_SAFE = APP_DIR / 'webview-safe'      # the browser profile of a safe start (main.watch_load)
 SETTINGS = APP_DIR / 'settings.json'
 
 

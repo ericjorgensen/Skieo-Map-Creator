@@ -19,6 +19,12 @@ is downloaded from this page's releases, checked against the release's `SHA256SU
 and started. Keep the exe in a folder of your own (Desktop, Documents, Downloads) so it can replace itself. Set the
 environment variable `SKIEO_NO_UPDATE=1` to never check.
 
+**If the window stays empty:** the window is drawn by Microsoft Edge WebView2. When it can't start, the Map Creator
+tries once more with a fresh browser profile and graphics acceleration off, then says what went wrong. Usually
+WebView2 is damaged (tools that remove Microsoft Edge often leave it half removed): repair it in Windows Settings >
+Apps > Microsoft Edge WebView2 Runtime > Modify, or install it from
+[Microsoft](https://go.microsoft.com/fwlink/p/?LinkId=2124703). The log is `%LOCALAPPDATA%\SkiEO Map Creator\logs\creator.log`.
+
 ## Verify a download
 
 Every release exe is built by GitHub Actions from the tagged source (`.github/workflows/release.yml`); nothing is
@@ -105,6 +111,7 @@ This makes `dist\SkiEO-Map-Creator.exe`, a single file that bundles `web/`, `dat
 | `tests/test_dem.py` | self-check of reading where the USGS elevation image really is (its GeoTIFF tags) |
 | `tests/test_update.py` | self-check of the self-update (release lookup, checksums, swapping the exe) without the network |
 | `tests/test_install.py` | self-check of the map list entries (never a tutorial map, the once-only rebuild of older ones) |
+| `tests/test_main.py` | self-check of the empty-window guard (a second try, then a message) with a stand-in window |
 | `.github/workflows/release.yml` | builds, checks, hashes and attests the exe and attaches it to each release |
 
 ## Releasing
