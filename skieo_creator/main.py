@@ -9,12 +9,12 @@ import time
 import traceback
 import webbrowser
 
-from . import APP_NAME, VERSION, paths
+from . import APP_NAME, VERSION, paths, update
 
 log = logging.getLogger('skieo_creator')
 WEBVIEW2_GUID = '{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
 WEBVIEW2_URL = 'https://go.microsoft.com/fwlink/p/?LinkId=2124703'
-MB_OK, MB_YESNO, MB_ICONERROR, MB_ICONWARNING, IDYES = 0x0, 0x4, 0x10, 0x30, 6
+MB_OK, MB_YESNO, MB_ICONERROR, MB_ICONWARNING, MB_ICONINFORMATION, IDYES = 0x0, 0x4, 0x10, 0x30, 0x40, 6
 
 
 def message(text, flags=MB_OK | MB_ICONERROR):
@@ -127,21 +127,37 @@ def main():
             webbrowser.open(WEBVIEW2_URL)
         return 1
     release_webview_profile()
+    update.cleanup()                                       # what an earlier update left next to the exe
+    rel = update.newer()                                   # a newer release on GitHub: ask before the window opens
+    if rel and message(update.prompt(rel), MB_YESNO | MB_ICONINFORMATION) != IDYES:
+        log.info('update to %s: not now', rel['version'])
+        rel = None
+    done = {}
     try:
         import webview
         from . import api, server
         url, _ = server.start()
         bridge = api.Api()
-        win = webview.create_window(APP_NAME, url, js_api=bridge, width=1440, height=900, min_size=(1100, 680),
+        win = webview.create_window(APP_NAME, None if rel else url, html=update.page(rel) if rel else None,
+                                    js_api=bridge, width=1440, height=900, min_size=(1100, 680),
                                     background_color='#0b1118', text_select=False)
         bridge._attach(win)
         win.events.shown += style_titlebar
-        webview.start(gui='edgechromium', private_mode=False, storage_path=str(paths.WEBVIEW),
+        webview.start(update.run if rel else None, (win, rel, url, done, message) if rel else None,
+                      gui='edgechromium', private_mode=False, storage_path=str(paths.WEBVIEW),
                       debug='--debug' in sys.argv)
     except Exception:
         log.critical('window failed:\n%s', traceback.format_exc())
         message('The Map Creator window could not be opened.\n\nDetails were written to:\n%s'
                 % (paths.LOGS / 'creator.log'))
         return 1
+    if done.get('exe'):                                    # updated: the new copy takes over from here
+        ctypes.windll.kernel32.CloseHandle(single_instance.handle)
+        try:
+            update.start(done['exe'])
+            log.info('started %s', done['exe'])
+        except OSError as ex:
+            log.error('the new version would not start: %s', ex)
+            message(update.undo(done['exe'], done['old'], ex))
     log.info('closed')
     return 0

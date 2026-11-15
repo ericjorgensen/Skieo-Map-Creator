@@ -2,6 +2,12 @@
 
 Maps made with an older version show **Rebuild recommended** in My Maps: one click on Rebuild gives them the fixes.
 
+## v1.7.4
+- **Updates itself.** When it starts, the Map Creator looks for a newer version on GitHub and asks before updating.
+  On yes it downloads the new exe (with a progress bar), checks it against the release's SHA-256, puts it in place of
+  the old one and starts it. If anything goes wrong, this version simply opens as it is. Keep the exe in a folder of
+  your own (Desktop, Documents, Downloads) so it can replace itself.
+
 ## v1.7.3
 - **Real trails and lifts: no more trails drawn as loops and stray dashes.** A trail is a chain of the game's curves,
   and the Map Creator cut every run into 100 m pieces: over a hairpin or a sharp bend (cat tracks and roads, like

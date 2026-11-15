@@ -14,6 +14,11 @@ because the exe is unsigned: click **More info**, then **Run anyway**. Changes: 
 
 Needs Windows 10/11 and Ski-E-O! installed through Steam.
 
+**Updates:** when it starts, the Map Creator looks for a newer release here and asks before updating. The new exe
+is downloaded from this page's releases, checked against the release's `SHA256SUMS.txt`, put in place of the old one
+and started. Keep the exe in a folder of your own (Desktop, Documents, Downloads) so it can replace itself. Set the
+environment variable `SKIEO_NO_UPDATE=1` to never check.
+
 ## Verify a download
 
 Every release exe is built by GitHub Actions from the tagged source (`.github/workflows/release.yml`); nothing is
@@ -31,7 +36,8 @@ built or uploaded by hand. Three ways to check one:
    It opens the exe and checks every bundled file byte for byte and every app module as compiled code against the
    source, and lists everything else inside (Python and the libraries in `requirements.txt`).
 
-What the app connects to: map tiles (OpenStreetMap, OpenTopoMap), place search (Photon, Nominatim), elevation
+What the app connects to: GitHub at each start (this repository's latest release, for updates), map tiles
+(OpenStreetMap, OpenTopoMap), place search (Photon, Nominatim), elevation
 data (USGS 3DEP, AWS Terrain Tiles) and, with **Real trails and lifts** on, the OpenStreetMap ski data (Overpass API)
 and tree canopy heights (Meta / WRI, AWS Open Data). retoc downloads the Oodle compression library on first use. No accounts, no
 telemetry. It writes to `%LOCALAPPDATA%\SkiEO Map Creator` and the game's `Content\Paks\~mods` folder, never to
@@ -97,6 +103,7 @@ This makes `dist\SkiEO-Map-Creator.exe`, a single file that bundles `web/`, `dat
 | `tests/ui_drive.py` | scripted UI sessions with screenshots (`search`, `3d`, `3d-offline`, `numbox`, `osm`, ...) |
 | `tests/test_resort.py` | self-check of the trail and lift import rules on made-up data |
 | `tests/test_dem.py` | self-check of reading where the USGS elevation image really is (its GeoTIFF tags) |
+| `tests/test_update.py` | self-check of the self-update (release lookup, checksums, swapping the exe) without the network |
 | `.github/workflows/release.yml` | builds, checks, hashes and attests the exe and attaches it to each release |
 
 ## Releasing
