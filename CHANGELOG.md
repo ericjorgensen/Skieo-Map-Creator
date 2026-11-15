@@ -12,6 +12,12 @@ Maps made with an older version show **Rebuild recommended** in My Maps: one cli
   needed). A game you already started without its lifts and trails stays that way: start a New Game on the map.
 - **Check for updates** next to the version number (bottom right): looks for a newer version on GitHub any time, and
   updates and restarts the Map Creator on yes, with a progress bar and Cancel.
+- **Oof's Alpine Buildings: the cabins no longer clear a big empty square of trees.** The game sizes the patch of
+  trees a building clears (and the ground it flattens) to every model in the building, and the cabins still carried
+  the game cabin's porch props (axes, barrels, ski racks), hidden but in place, so a small cabin cleared up to 3.7 m
+  of extra forest on each side, up to 63% more than its own size. The props are gone now. Installed packs update
+  by themselves the next time the Map Creator opens while the game is closed; buildings you already placed keep
+  their cleared ground.
 
 ## v1.7.4
 - **Updates itself.** When it starts, the Map Creator looks for a newer version on GitHub and asks before updating.
