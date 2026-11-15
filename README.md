@@ -1,29 +1,114 @@
+<div align="center">
+
 # Ski-E-O Map Creator
 
-A standalone Windows app that turns any real-world mountain into a playable map for **Ski-E-O!**. Pick a square on
-the map, and it downloads the real elevation, builds a complete map (terrain, forests, snow, preview, starting
-base) and installs it into the game. It needs no Unreal Engine, and no game files are included: it reads what it
-needs from the player's own installed copy of the game.
+**Turn any real mountain into a playable map for Ski-E-O!**<br>
+Real terrain, a forest that fits the region, and the ski area's real trails and lifts, built and installed in a
+couple of minutes.
+
+[![Download](https://img.shields.io/github/v/release/oofbyte/Skieo-Map-Creator?label=download&color=2e7d32)](https://github.com/oofbyte/Skieo-Map-Creator/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/oofbyte/Skieo-Map-Creator/total?color=1565c0)](https://github.com/oofbyte/Skieo-Map-Creator/releases)
+[![Windows 10 and 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4)](#download-and-play)
+[![MIT license](https://img.shields.io/github/license/oofbyte/Skieo-Map-Creator?color=555)](LICENSE)
+
+<img src="docs/images/whistler-skimap.jpg" alt="Whistler Blackcomb's real trails and lifts in the game's Ski Map" width="100%">
+
+<sub>Whistler Blackcomb from OpenStreetMap: 518 trails and 31 lifts, in the game's own Ski Map.</sub>
+
+</div>
 
 Fan-made; not affiliated with or endorsed by the developers of Ski-E-O!.
 
-## Download
+## What it does
 
-Get `SkiEO-Map-Creator.exe` from [Releases](../../releases/latest). It's one file, no install. Windows may warn
-because the exe is unsigned: click **More info**, then **Run anyway**. Changes: [CHANGELOG.md](CHANGELOG.md).
+- **Any mountain on Earth.** Search a ski area, mountain or town, drag the square over it (3 to 20 km wide) and load
+  the real elevation: USGS 10 m data in the US, about 30 m everywhere else.
+- **Real trails and lifts.** Switch on **Real trails and lifts** and the ski area's runs and lifts from
+  OpenStreetMap are built into the map, ready when you start a New Game. Near the runs the forest follows the real
+  tree cover, so open bowls stay open and glades stay wooded.
+- **A forest that fits.** The game's own tree species for the region, up to the treeline, with a tree limit for
+  slower PCs.
+- **Snow like the game's own maps.** Piles, banks and drifts build up through the winter.
+- **3D preview.** Look the terrain over in 3D before you build it.
+- **Installs itself.** The map shows up on the game's world map in its real region, with its real elevations and
+  climate. **My Maps** reinstalls, removes or rebuilds your maps with the latest fixes.
+- **Mod Library.** One-click extras for the game, [below](#mod-library).
+- **Updates itself** from this page's releases.
 
-Needs Windows 10/11 and Ski-E-O! installed through Steam.
+## Screenshots
 
-**Updates:** when it starts, the Map Creator looks for a newer release here and asks before updating. The new exe
-is downloaded from this page's releases, checked against the release's `SHA256SUMS.txt`, put in place of the old one
-and started. Keep the exe in a folder of your own (Desktop, Documents, Downloads) so it can replace itself. Set the
-environment variable `SKIEO_NO_UPDATE=1` to never check.
+<table>
+<tr>
+<td width="50%"><img src="docs/images/whistler-3d.jpg" alt="Whistler Blackcomb in the game"></td>
+<td width="50%"><img src="docs/images/stratton-3d.jpg" alt="Stratton's trails cut into the forest"></td>
+</tr>
+<tr>
+<td align="center"><sub>Whistler Blackcomb in the game</sub></td>
+<td align="center"><sub>Stratton, Vermont: every run cut into the forest</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/images/stratton-skimap.jpg" alt="Stratton in the game's Ski Map"></td>
+<td width="50%"><img src="docs/images/vail-skimap.jpg" alt="Vail's front side in the game's Ski Map"></td>
+</tr>
+<tr>
+<td align="center"><sub>Stratton in the Ski Map: 95 trails, 13 lifts</sub></td>
+<td align="center"><sub>Vail in the Ski Map: 215 trails, 30 lifts</sub></td>
+</tr>
+</table>
 
-**If the window stays empty:** the window is drawn by Microsoft Edge WebView2. When it can't start, the Map Creator
-tries once more with a fresh browser profile and graphics acceleration off, then says what went wrong. Usually
-WebView2 is damaged (tools that remove Microsoft Edge often leave it half removed): repair it in Windows Settings >
-Apps > Microsoft Edge WebView2 Runtime > Modify, or install it from
-[Microsoft](https://go.microsoft.com/fwlink/p/?LinkId=2124703). The log is `%LOCALAPPDATA%\SkiEO Map Creator\logs\creator.log`.
+<img src="docs/images/vail-back-bowls.jpg" alt="Vail's Back Bowls and Blue Sky Basin in the game's Ski Map" width="100%">
+
+<p align="center"><sub>Vail from the west: the Back Bowls and Blue Sky Basin</sub></p>
+
+## Download and play
+
+1. Download **SkiEO-Map-Creator.exe** from
+   [Releases](https://github.com/oofbyte/Skieo-Map-Creator/releases/latest). It's one file, no install. Windows may
+   warn because the exe isn't code-signed: click **More info**, then **Run anyway**.
+2. Search a mountain or ski area, drag the square over it and press **Load Terrain**.
+3. Look over the preview, name your resort, and switch on **Real trails and lifts** for a real ski area.
+4. Press **Create Map**. It takes a minute or two; if the game is open, the map is installed as soon as you close it.
+5. Start Ski-E-O!, choose **New Game** and pick your map in its region on the world map.
+
+Needs Windows 10 or 11, Ski-E-O! installed through Steam, and an internet connection. No game files are included:
+the Map Creator reads what it needs from your own copy of the game. What changed in each version:
+[CHANGELOG.md](CHANGELOG.md).
+
+## Mod Library
+
+Extras for the game, installed and removed with one click in the Map Creator (close the game first):
+
+| Mod | What it does |
+|---|---|
+| **Oof's Simple Cheat Menu** | **F6** in game: money, time up to 100x, weather and climate, reputation, guests, no accidents or breakdowns, build anywhere |
+| **Oof's Anarchy** | **Ctrl+A** in game: build anywhere. Buildings and lifts ignore slopes, ground type, trees and rocks, and other buildings |
+| **Oof's Speed Control** | Speed buttons from 1x to 100x under the game's own |
+| **Oof's Alpine Buildings** | 50 new cabins, hotels and base lodges in the build menu |
+| **Doppelmayr D-Line R2 Six** and **R2 Gondola** | Two new lifts in the build menu |
+
+The in-game mods (the cheat menu, Anarchy and Speed Control) run on the [UE4SS](https://github.com/UE4SS-RE/RE-UE4SS)
+mod loader: the Map Creator installs it if you don't have it, and removes it again with the last mod that needs it.
+
+## If something goes wrong
+
+- **The window stays empty.** The window is drawn by Microsoft Edge WebView2. When it can't start, the Map Creator
+  tries once more with a fresh browser profile and graphics acceleration off, then says what went wrong. Usually
+  WebView2 is damaged (tools that remove Microsoft Edge often leave it half removed): repair it in Windows Settings >
+  Apps > Microsoft Edge WebView2 Runtime > Modify, or install it from
+  [Microsoft](https://go.microsoft.com/fwlink/p/?LinkId=2124703).
+- **The game closes the first time it starts after installing a map or a mod.** That can happen once: start it
+  again.
+- **Anything else:** press **Copy diagnostics** at the bottom of the Map Creator and paste it into an
+  [issue](https://github.com/oofbyte/Skieo-Map-Creator/issues). The log is
+  `%LOCALAPPDATA%\SkiEO Map Creator\logs\creator.log`.
+
+## Updates
+
+When it starts, the Map Creator looks for a newer release here and asks before updating. The new exe is downloaded
+from this page's releases, checked against the release's `SHA256SUMS.txt`, put in place of the old one and started.
+Keep the exe in a folder of your own (Desktop, Documents, Downloads) so it can replace itself. **Check for updates**
+at the bottom right looks again at any time. Set the environment variable `SKIEO_NO_UPDATE=1` to skip the check at
+start.
 
 ## Verify a download
 
@@ -42,86 +127,19 @@ built or uploaded by hand. Three ways to check one:
    It opens the exe and checks every bundled file byte for byte and every app module as compiled code against the
    source, and lists everything else inside (Python and the libraries in `requirements.txt`).
 
+## Privacy
+
 What the app connects to: GitHub at each start (this repository's latest release, for updates), map tiles
-(OpenStreetMap, OpenTopoMap), place search (Photon, Nominatim), elevation
-data (USGS 3DEP, AWS Terrain Tiles) and, with **Real trails and lifts** on, the OpenStreetMap ski data (Overpass API)
-and tree canopy heights (Meta / WRI, AWS Open Data). retoc downloads the Oodle compression library on first use. No accounts, no
-telemetry. It writes to `%LOCALAPPDATA%\SkiEO Map Creator` and the game's `Content\Paks\~mods` folder, never to
-saves.
+(OpenStreetMap, OpenTopoMap, Esri World Imagery), place search (Photon, Nominatim), elevation data (USGS 3DEP, AWS
+Terrain Tiles) and, with **Real trails and lifts** on, the OpenStreetMap ski data (Overpass API) and tree canopy
+heights (Meta / WRI, AWS Open Data). retoc downloads the Oodle compression library on first use. No accounts, no
+telemetry. It writes to `%LOCALAPPDATA%\SkiEO Map Creator`, the game's `Content\Paks\~mods` folder and, for the
+in-game mods, `Binaries\Win64\ue4ss`; never to your saves.
 
-## How it works
+## For developers
 
-1. **Elevation**: USGS 3DEP 1/3 arc-second (~10 m) inside the US, AWS Terrain Tiles (~30 m) elsewhere
-   (`dem.py`). It is resampled onto the game's 2017 x 2017 landscape grid on a local transverse Mercator projection
-   (`geo.py`).
-2. **Game data**: `gamedata.py` uses retoc to extract a donor map (Mad River Glen) and a few assets from the
-   player's game into a cache, and dry-runs every writer on them before the first build.
-3. **Build** (`builder.py`): the donor map is copied, and these parts are rewritten:
-   - **Heights and scale:** landscape heights and all their mip levels (made the way Unreal makes them), edge-normal
-     rings and grid scale (`engine/terrain_write.py`, `engine/provider_write.py`); component bounds and collision;
-     the map frame (size, height scale); and the edge wall, whose edge the terrain is fitted to (`engine/map_frame.py`).
-   - **Forest:** in the game's baked-obstacle format, with the biome's own tree species (`trees.py`, `biomes.py`).
-   - **Snow piles:** written from a cooked template mesh (`shells.py`, `data/shell_template.*`).
-   - **Everything else:** terrain material overrides (`engine/material_params.py`), the height texture, the map
-     preview, the starting save (ticket office on the base area), and the map list entry. Every renamed string keeps
-     its length.
-   - **Real trails and lifts** (optional, `resort.py`): the ski area's OpenStreetMap lifts and pistes become the
-     game's own lift and trail records in the starting save (read and written with `engine/gvas_tree.py`, record
-     layouts from `data/resort_templates.bin`), the forest leaves their corridors clear, and the map list entry's
-     `InitialSave` makes New Game start from that save. Glades are left out: the ones OSM marks, and runs under tree
-     canopy with no cleared corridor in the satellite canopy heights (`canopy.py`). A run drawn twice in OSM is built
-     once. Within 300 m of the runs, glades and lifts the forest follows the real tree cover from the same canopy
-     heights (`resort.tree_cover`), so open bowls and meadows stay open.
-4. **Pack and install**: retoc `to-zen` packs a `ZZZ_MC_<name>_P` pak. `install.py` adds the map to the game's
-   map list (`ZZZ_Registry_P`) and copies it into `Content/Paks/~mods`.
-
-The window is a local web UI (`web/`: Leaflet map, three.js 3D preview) shown by pywebview / WebView2. `server.py`
-serves it on 127.0.0.1, with a token-protected tile proxy on its own port.
-
-## Run from source
-
-Windows 10/11, Python 3.12, Ski-E-O! installed through Steam.
-
-```
-py -3.12 -m venv .venv
-.venv\Scripts\python -m pip install -r requirements.txt
-.venv\Scripts\python run.py
-```
-
-## Build the exe
-
-```
-packaging\build.bat
-```
-
-This makes `dist\SkiEO-Map-Creator.exe`, a single file that bundles `web/`, `data/` and `tools/retoc.exe`.
-
-## Layout
-
-| Path | What |
-|---|---|
-| `skieo_creator/` | app: `main.py` (window), `api.py` (calls from the page), `builder.py`, `trees.py`, `shells.py`, `dem.py`, `install.py` ... |
-| `skieo_creator/engine/` | writers for the cooked map data (heightmaps, providers, bounds, collision, frame, headers, materials) |
-| `web/` | the UI (HTML / CSS / JS) and vendored Leaflet + three.js |
-| `data/` | the cooked snow-shell template; `resort_templates.bin`, blank lift / trail save records (from `packaging/make_resort_templates.py`) |
-| `tools/` | retoc.exe (MIT, https://github.com/trumank/retoc) |
-| `packaging/` | PyInstaller spec, build script, icon, version info, credits (`THIRD-PARTY.txt`), `verify_exe.py` |
-| `tests/ui_drive.py` | scripted UI sessions with screenshots (`search`, `3d`, `3d-offline`, `numbox`, `osm`, ...) |
-| `tests/test_resort.py` | self-check of the trail and lift import rules on made-up data |
-| `tests/test_dem.py` | self-check of reading where the USGS elevation image really is (its GeoTIFF tags) |
-| `tests/test_update.py` | self-check of the self-update (release lookup, checksums, swapping the exe) without the network |
-| `tests/test_install.py` | self-check of the map list entries (never a tutorial map, the once-only rebuild of older ones) |
-| `tests/test_main.py` | self-check of the empty-window guard (a second try, then a message) with a stand-in window |
-| `.github/workflows/release.yml` | builds, checks, hashes and attests the exe and attaches it to each release |
-
-## Releasing
-
-1. Bump `VERSION` in `skieo_creator/__init__.py` and the versions in `packaging/version_info.txt`, and add a
-   `## vX.Y.Z` section to `CHANGELOG.md`.
-2. On GitHub: **Releases → Draft a new release**, create the tag `vX.Y.Z`, and publish. The description can stay
-   empty.
-3. The workflow builds the exe from that tag, checks it against the source, and attaches it and `SHA256SUMS.txt` to
-   the release, with the notes from `CHANGELOG.md`. It stops if the tag doesn't match the versions in step 1.
+How the maps are built, running from source, building the exe, the code layout, the tests and releasing:
+[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ## License
 
