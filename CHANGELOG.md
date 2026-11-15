@@ -2,6 +2,14 @@
 
 Maps made with an older version show **Rebuild recommended** in My Maps: one click on Rebuild gives them the fixes.
 
+## v1.7.3
+- **Real trails and lifts: no more trails drawn as loops and stray dashes.** A trail is a chain of the game's curves,
+  and the Map Creator cut every run into 100 m pieces: over a hairpin or a sharp bend (cat tracks and roads, like
+  Vail's Gitalong Road) a curve overshot the bend and folded back, so the game drew the trail as loops. Now the curves
+  are cut at the bends and follow them, and a trail narrows where a bend is too tight for its width (at Vail: 16
+  trails with folded curves before, now none worth seeing).
+- Maps made with the real trails and lifts show **Rebuild recommended**: Rebuild gives them the fixed trails.
+
 ## v1.7.2
 - **Real trails and lifts: the forest round the resort is the real one.** The Map Creator plants its own forest
   everywhere below the treeline, and OpenStreetMap often maps open bowls only as the runs through them (Vail's back

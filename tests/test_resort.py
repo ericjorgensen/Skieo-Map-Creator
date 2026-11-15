@@ -71,6 +71,25 @@ assert p0['Y'] < p_end['Y'] and p0['Z'] > p_end['Z'], 'the trail is joined into 
 assert abs(trail['length_cm'] / 100 - 2200) < 30, trail['length_cm']
 assert all(abs(a[2]['X'] - b[0]['X']) < 1e-6 for a, b in zip(trail['curves'], trail['curves'][1:])), 'curves chain'
 assert resort.plan(osm, terrain, skip={100})['lifts'] == []
+
+# ---- a road with a hairpin (radius 10 m) between two 220 m legs (in the middle of a 100 m curve, as 1.7.2 laid them):
+# its curves follow the bend instead of overshooting it and folding back (the game drew loops and stray dashes), and
+# the 40 m road narrows to fit the bend
+arc = np.linspace(np.pi, 0.0, 13)
+hp = np.vstack([np.column_stack([np.full(30, 3000.0), np.linspace(1230.0, 1010.0, 30)]),
+                np.column_stack([3010.0 + 10.0 * np.cos(arc), 1000.0 - 10.0 * np.sin(arc)]),
+                np.column_stack([np.full(30, 3020.0), np.linspace(1010.0, 1230.0, 30)])])
+road = resort._corridor('Hairpin Road', 'Beginner', hp, [{'highway': 'track'}], terrain)
+cv = [(np.array([p['X'], p['Y']]) / 100.0, np.array([c['X'], c['Y']]) / 100.0, np.array([q['X'], q['Y']]) / 100.0,
+       w / 100.0) for p, c, q, w in road['curves']]
+assert all(np.allclose(a[2], b[0]) for a, b in zip(cv, cv[1:])), 'curves chain'
+assert all(resort._bend_radius(a, c, b) >= w / 2 - 1e-6 for a, c, b, w in cv), 'no curve folds back'
+widths = [w for *_, w in cv]
+assert min(widths) < 25 and widths[0] == widths[-1] == 40.0, widths
+assert all(abs(u - v) <= resort.WIDTH_GROW_M + 1e-6 for u, v in zip(widths, widths[1:])), widths
+# a short end joins the curve before it only when that keeps the bend out of it (found in review)
+assert np.allclose(resort._curve_breaks(np.array([[0.0, 0.0], [100.0, 0.0], [105.0, 0.0]])), [0, 105])
+assert np.allclose(resort._curve_breaks(np.array([[0.0, 0.0], [100.0, 0.0], [100.0, 5.0]])), [0, 100, 105])
 mask, res = resort.clear_mask(pl, size)
 assert mask[int(2000 / res), int(2000 / res)] and mask[int(2000 / res), int(1820 / res)] and not mask[int(2000 / res), int(3000 / res)]
 

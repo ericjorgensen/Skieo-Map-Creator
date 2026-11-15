@@ -78,6 +78,14 @@ MIN_LIFT_M = 60.0                               # shorter lifts (most magic carp
 MAX_LIFT_M = 7500.0
 EDGE_M = 60.0                                   # lift stations must be this far inside the square
 CURVE_M = 100.0                                 # trail curve length (the game's are 20-850 m, half 80-150 m)
+# ...shorter round bends: one quadratic curve can't follow more turning than this (or an S-bend), and a curve laid
+# over a hairpin overshot it and folded back (the game drew loops and stray dashes, e.g. Vail's roads)
+CURVE_TURN = 50.0                               # degrees of turning in one curve at most...
+CURVE_MIN_M = 12.0                              # ...unless that makes it shorter than this
+CURVE_STEP_M = 5.0                              # the line is followed this finely to find its bends
+MIN_WIDTH_M = 8.0                               # a trail narrows to fit a bend tighter than half its width (else the
+WIDTH_GROW_M = 10.0                             # game draws its edges folded), not below this, widening back by at
+                                                # most this much per curve
 MIN_TRAIL_M = 120.0
 MIN_UNNAMED_M = 350.0
 DUP_M = 20.0                                    # a stretch of a run this close to a longer run of the same name...
@@ -720,6 +728,36 @@ def _bowls_drawn_twice(bowls, skipped):
     return keep
 
 
+def _curve_breaks(P):
+    """distances along P where its curves meet: at most CURVE_M apart, and closer round bends so that no curve turns
+    more than CURVE_TURN degrees (all turning counted, so an S-bend is split too), none shorter than CURVE_MIN_M but
+    a last one that a bend keeps apart"""
+    L = _length(P)
+    Q = _resample(P, CURVE_STEP_M)
+    s = np.linspace(0.0, L, len(Q))                              # Q's points lie on P this far along it
+    hd = np.arctan2(*np.diff(Q, axis=0).T[::-1])
+    turn = np.abs(np.angle(np.exp(1j * np.diff(hd))))            # at Q[1:-1]
+    out, acc, last = [0.0], 0.0, 0.0
+    for j in range(1, len(Q) - 1):
+        acc += turn[j - 1]
+        if s[j] - out[-1] >= CURVE_M or (acc > math.radians(CURVE_TURN) and s[j] - out[-1] >= CURVE_MIN_M):
+            out.append(float(s[j]))
+            last, acc = acc, 0.0
+    if len(out) > 1 and L - out[-1] < CURVE_MIN_M and last + acc <= math.radians(CURVE_TURN):
+        out.pop()                                                # a short straight end joins the curve before it
+    out.append(L)
+    return np.array(out)
+
+
+def _bend_radius(a, c, b):
+    """the tightest radius (m) of the quadratic curve a -> b with control point c"""
+    t = np.linspace(0.0, 1.0, 21)[:, None]
+    d1 = 2 * (1 - t) * (c - a) + 2 * t * (b - c)
+    d2 = 2 * (a - 2 * c + b)
+    cross = np.abs(d1[:, 0] * d2[1] - d1[:, 1] * d2[0])
+    return float((np.hypot(d1[:, 0], d1[:, 1]) ** 3 / np.maximum(cross, 1e-12)).min())
+
+
 def _corridor(name, diff, P, tags, terrain):
     """a downhill polyline (corner metres) -> the game's chain of quadratic curves"""
     Q = _resample(P, 10.0)
@@ -729,17 +767,26 @@ def _corridor(name, diff, P, tags, terrain):
     if diff is None:                                   # no grade in OSM: from the incline
         diff = 'Beginner' if max_slope < 15 else 'Intermediate' if max_slope < 24 else 'Expert' if max_slope < 32 else 'Pro'
     width = next((w for w in (_num(t.get('width')) for t in tags) if w and 8 <= w <= 150), None) or WIDTH_M[diff]
-    S = _resample(P, CURVE_M)
-    d, ds = _cum(P), _cum(S)
-    curves = []
-    for i in range(len(S) - 1):
-        p0, p2 = S[i], S[i + 1]
-        tm = (ds[i] + ds[i + 1]) / 2 / ds[-1] * d[-1]
-        m = np.array([np.interp(tm, d, P[:, 0]), np.interp(tm, d, P[:, 1])])
+    d = _cum(P)
+    br = _curve_breaks(P)
+
+    def at(s):
+        return np.array([np.interp(s, d, P[:, 0]), np.interp(s, d, P[:, 1])])
+    pieces, widths = [], []
+    for a, b in zip(br[:-1], br[1:]):
+        p0, p2, m = at(a), at(b), at((a + b) / 2)
         c = 2 * m - (p0 + p2) / 2                      # the curve passes through the piste's own midpoint
+        pieces.append((p0, c, p2, m))
+        widths.append(min(width, max(MIN_WIDTH_M, 1.8 * _bend_radius(p0, c, p2))))
+    for i in range(1, len(widths)):                   # widen back gradually after a tight bend
+        widths[i] = min(widths[i], widths[i - 1] + WIDTH_GROW_M)
+    for i in range(len(widths) - 2, -1, -1):
+        widths[i] = min(widths[i], widths[i + 1] + WIDTH_GROW_M)
+    curves = []
+    for (p0, c, p2, m), w in zip(pieces, widths):
         z0, z2, zm = (float(v) for v in terrain.z(np.array([p0[0], p2[0], m[0]]), np.array([p0[1], p2[1], m[1]])))
         curves.append((terrain.world(*p0, z0), terrain.world(*c, 2 * zm - (z0 + z2) / 2), terrain.world(*p2, z2),
-                       width * 100.0))
+                       w * 100.0))
     grooming = {t.get('piste:grooming') for t in tags} - {None}
     groomed = (diff in ('Beginner', 'Intermediate') or bool(grooming & {'classic', 'yes'})) and \
         not grooming & {'mogul', 'backcountry', 'no'}

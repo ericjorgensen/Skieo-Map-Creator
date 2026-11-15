@@ -55,9 +55,10 @@ ENTRY_FORMAT = 3
 #   7 (1.1.6): the terrain textures' grid scale is the map's own (was the donor's: wrong lighting, lines at tile borders)
 #   8 (1.4.0): for the full game; real size only (no Diorama variant in the map list)
 RECIPE = 8
-RECIPE_OSM = 11                                   # with the real trails and lifts: 9 (1.6.1) without the glades,
+RECIPE_OSM = 12                                   # with the real trails and lifts: 9 (1.6.1) without the glades,
                                                   # 10 (1.6.2) a run drawn twice in OSM built once, 11 (1.7.2) the
-                                                  # forest round the resort follows the real tree cover
+                                                  # forest round the resort follows the real tree cover, 12 (1.7.3)
+                                                  # trail curves follow bends (no folded loops)
 BUILD_LOCK = threading.Lock()                     # frame.py holds the map frame globally: one build at a time
 
 
