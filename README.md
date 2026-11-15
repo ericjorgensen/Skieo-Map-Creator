@@ -98,6 +98,9 @@ mod loader: the Map Creator installs it if you don't have it, and removes it aga
   [Microsoft](https://go.microsoft.com/fwlink/p/?LinkId=2124703).
 - **The game closes the first time it starts after installing a map or a mod.** That can happen once: start it
   again.
+- **A custom map has no trees after a game update.** The game drops every tree of a map with more than 1.5 million,
+  and the Map Creator raises that limit in the game's exe. A game update puts the old exe back: close the game, open
+  the Map Creator once, then start the game. Your maps need no rebuilding.
 - **Anything else:** press **Copy diagnostics** at the bottom of the Map Creator and paste it into an
   [issue](https://github.com/oofbyte/Skieo-Map-Creator/issues). The log is
   `%LOCALAPPDATA%\SkiEO Map Creator\logs\creator.log`.
