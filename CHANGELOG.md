@@ -17,6 +17,8 @@ Maps made with an older version show **Rebuild recommended** in My Maps: one cli
 - **Experimental mode** (under the slider) lets it go up to the game's full forest density, 7.5 million at 20 km,
   after a warning of what that costs: Sun Peaks with 3.6 million trees runs at 47 fps, and a game update hides the
   trees of a map over 1.5 million until the Map Creator is opened again. A map made in it keeps its count when rebuilt.
+- **Oof's Anarchy** switches on and off with Ctrl+A alone: Ctrl+Alt+A or Ctrl+Shift+A no longer switch it too, so it
+  doesn't go off with other mods' keys (Decoration Anarchy's is Ctrl+Alt+A).
 - Maps show **Rebuild recommended**: rebuild the big ones for the smoother forest.
 
 ## v1.8.1

@@ -154,7 +154,16 @@ end
 
 local pc, pcIn, frame = nil, 0, 0
 local KEY_A = { KeyName = FName("A") }
-local CTRL_L, CTRL_R = { KeyName = FName("LeftControl") }, { KeyName = FName("RightControl") }
+local CTRL = { { KeyName = FName("LeftControl") }, { KeyName = FName("RightControl") } }
+-- Ctrl+A on its own: with Alt or Shift held too it is another mod's key (Decoration Anarchy's is Ctrl+Alt+A)
+local OTHER = { { KeyName = FName("LeftAlt") }, { KeyName = FName("RightAlt") }, { KeyName = FName("LeftShift") },
+                { KeyName = FName("RightShift") } }
+local function anyDown(keys)
+  for _, k in ipairs(keys) do
+    if pc:IsInputKeyDown(k) then return true end
+  end
+  return false
+end
 function M.input()                                -- every frame: "just pressed" lasts one frame
   frame = frame + 1
   if not valid(pc) then
@@ -163,7 +172,7 @@ function M.input()                                -- every frame: "just pressed"
     pc = find("PlayerController")
     if not pc then return end
   end
-  if pc:WasInputKeyJustPressed(KEY_A) and (pc:IsInputKeyDown(CTRL_L) or pc:IsInputKeyDown(CTRL_R)) then
+  if pc:WasInputKeyJustPressed(KEY_A) and anyDown(CTRL) and not anyDown(OTHER) then
     M.on = not M.on
     log(M.on and "on" or "off")
     M.background()
