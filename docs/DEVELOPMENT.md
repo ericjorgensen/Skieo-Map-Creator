@@ -19,8 +19,8 @@ For players, see the [README](../README.md).
      `data/tree_patterns.json`, see below), conifers only near the summits (`biomes.py`). The game's frame rate goes
      with the tree instances it draws (every tree and each living broadleaf or larch canopy: shadow and wind each frame,
      however far), not with their triangles, so a forest over `trees.TREE_BUDGET` instances (as many as the game's
-     own biggest maps) thins out, least around the lifts and trails (`data/tree_meshes.json`: the meshes of each
-     kind of tree, see below).
+     own biggest maps) thins out, least around the lifts and trails, the trees it keeps a size larger where that
+     keeps the ground covered (`data/tree_meshes.json`: the meshes of each kind of tree, see below).
    - **Snow piles:** written from a cooked template mesh (`shells.py`, `data/shell_template.*`).
    - **Everything else:** terrain material overrides (`engine/material_params.py`), the height texture, the map
      preview, the starting save (ticket office on the base area), and the map list entry. Every renamed string keeps

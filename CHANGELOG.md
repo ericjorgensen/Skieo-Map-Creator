@@ -3,12 +3,14 @@
 Maps made with an older version show **Rebuild recommended** in My Maps: one click on Rebuild gives them the fixes.
 
 ## v1.8.2
-- **Big maps run as smoothly as the game's own.** The game draws every tree, with its shadow and its sway in the
-  wind, on every frame however far away, so its frame rate goes with the number of trees, not with the map or the
-  kind of tree: Sun Peaks, 14 km at the game's full forest density (3.6 million trees), ran at about half the frame
-  rate of a normal map. A map's forest now stops at 1.5 million trees and canopies (the game draws the canopy of a
-  broadleaf tree or larch as a second tree), about what the game's own biggest maps draw: past that it thins out,
-  least around the lifts and trails (Sun Peaks: 47 fps before, 69 now on an RTX 5070 Ti; the game's own Killington
+- **Big maps run like the game's own.** The game draws every tree, with its shadow and its sway in the wind, on
+  every frame however far away, so its frame rate goes with the number of trees, not with the map or the kind of
+  tree: Sun Peaks, 14 km at the game's full forest density (3.6 million trees), ran at about half the frame rate of a
+  normal map, in every region (47-59 fps). The game's own maps never have more than about 1.4 million (Whistler 1.42
+  million; Chamonix spreads 1.37 million over 23 km). A map's forest now stops at 1.5 million trees and canopies (the
+  game draws the canopy of a broadleaf tree or larch as a second tree): past that it thins out, least around the lifts
+  and trails, and the trees it keeps grow a size larger so the forest still covers the ground (Sun Peaks: 47 fps
+  before, 66 now on an RTX 5070 Ti, with four fifths of its forest cover round the trails; the game's own Killington
   runs at 74 there). That also keeps maps within the game's own tree limit, so they keep their trees after a game
   update even before the Map Creator has been opened again.
 - Maps show **Rebuild recommended**: rebuild the big ones for the smoother forest.

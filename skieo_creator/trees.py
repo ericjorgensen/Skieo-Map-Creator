@@ -72,8 +72,10 @@ LONE_BLOCK = 6
 # itself stops at 1.5M trees and its own maps have up to 1.4M, so a forest of more than TREE_BUDGET instances
 # (data/tree_meshes.json: the meshes of each kind of tree) thins out, round the resort (within NEAR_M of the lifts and
 # trails) up to 1 / FAR_SHARE times as dense as NEAR_FADE_M further out; evenly on a map without the real resort.
+# Fewer trees, bigger ones: where a stand keeps few of its trees, its living ones grow a size (5 / 10 / 15 / 20 m, up
+# to the species' largest) with the odds that bring back its ground cover (a crown's area taken as its height squared).
 TREE_BUDGET = 1_500_000
-NEAR_M, NEAR_FADE_M = 2500.0, 1000.0
+NEAR_M, NEAR_FADE_M = 1000.0, 1000.0
 FAR_SHARE = 0.5
 _meshes = None
 CONIFERS = ('Fir', 'Spruce', 'Pine', 'WhitebarkPine', 'Hemlock', 'Larch', 'Sclerophyll')
@@ -533,6 +535,24 @@ def forest(H, hmin, sp, sc, biome, treeline, valley, donors, species, biome_spec
             rep_size = _draw(sc4[stand[rep], pick[rep], :, st], rng)         # (rows of blocks without any: unused)
             r = rep[grp[flag]]
             pick[flag], size[flag], state[flag], vpick[flag] = pick[r], rep_size[grp[flag]], st, vpick[r]
+    budget = TREE_BUDGET if budget is None else budget
+    kind = lambda n, t: tuple(species[n][_pick_variant(species[n], 0, t, np.zeros(1, np.int64))[0]])  # as drawn below
+    per_kind = tree_meshes([('DA_TreeSpecies_' + n,) + kind(n, t) for n in names for t in range(4)])[:, 0]
+    cost = per_kind.reshape(S, 4)[pick, state]             # instances the game draws per tree (alike at every size)
+    if float(cost.sum()) > budget:
+        odds = _thin_odds(x, y, cost, budget, clear)
+        keep = rng.random(m) < odds
+        kept = np.nonzero(keep)[0]                         # never over it (the game drops every tree past 1.5M):
+        keep[kept[np.cumsum(cost[kept]) > budget]] = False  # the last few chosen go (trees are in random order)
+        top = np.array([max([v[0] for v in species[n] if v[1] == 0] or [0]) for n in names])[pick]
+        area = ((size + 2.0) / (size + 1.0)) ** 2         # a crown one size up over this one
+        grow = np.clip((1.0 / np.maximum(_per(stand, odds), 1e-6) - 1.0) / (area - 1.0), 0.0, 1.0)
+        grow = (state == 0) & (size < top) & (rng.random((n_st, S))[stand, pick] < grow)    # per stand and species
+        log.info('forest: %d tree instances over the budget of %d: %d of %d trees kept, %d of them a size larger',
+                 cost.sum(), budget, int(keep.sum()), m, int((grow & keep).sum()))
+        size = size + grow
+        x, y, rec, pick, size, state, vpick, band = (a[keep] for a in (x, y, rec, pick, size, state, vpick, band))
+        m = len(x)
     tgt_sp = np.asarray(names, object)[pick]
     d_size = np.array([e[1] for e in d_ents], np.int64)[d_kind]
     for b in range(BANDS):                                 # yaw / width / height of a donor of that height and size
@@ -566,15 +586,6 @@ def forest(H, hmin, sp, sc, biome, treeline, valley, donors, species, biome_spec
                         j = index[key] = len(table)
                         table.append(('DA_TreeSpecies_' + sp_name,) + key[1:])
                     var[sel[picks == vi]] = j
-    cost = tree_meshes(table)[:, 0][var]                   # instances the game draws per tree
-    budget = TREE_BUDGET if budget is None else budget
-    if float(cost.sum()) > budget:
-        keep = rng.random(m) < _thin_odds(x, y, cost, budget, clear)
-        kept = np.nonzero(keep)[0]                         # never over it (the game drops every tree past 1.5M):
-        keep[kept[np.cumsum(cost[kept]) > budget]] = False  # the last few chosen go (trees are in random order)
-        log.info('forest: %d tree instances over the budget of %d: %d of %d trees kept', cost.sum(), budget,
-                 int(keep.sum()), m)
-        rec, var = rec[keep], var[keep]
     rec[:, 18:20] = var.astype('<u2').view(np.uint8).reshape(-1, 2)
     counts = {}
     for e, n in zip(table, np.bincount(var, minlength=len(table))):
