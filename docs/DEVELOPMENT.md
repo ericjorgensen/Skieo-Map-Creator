@@ -40,7 +40,7 @@ The Mod Library (`modlib.py`) copies the in-game Lua mods from `data/mods` into 
 `Content/Paks/~mods` (Blueprint mods: `Content/Paks/LogicMods`). The build menu's table and the snow cap list can only
 come from one pak, so it merges them for all installed mods into its own pak, made from the player's game files
 (`engine/shared_assets.py`), keeping what mods installed by hand add (`modscan.py`, which also checks that a map
-package holds only a map). Mods by other modders are packaged into it with `tools/package_mod.py`:
+package holds only a map). Mods by other modders are packaged into it with `packaging/package_mod.py`:
 [MODDING.md](MODDING.md).
 
 ## Run from source
@@ -69,7 +69,7 @@ learner on them:
 
 ```
 tools\retoc.exe to-legacy --no-shaders -f DA_BakedObstacles_Map_ -f Materials/Terrain/Generated/ <game>\SkiResortSimulator\Content\Paks <out>
-python tools/make_tree_patterns.py <out>\SkiResortSimulator\Content --check
+python packaging/make_tree_patterns.py <out>\SkiResortSimulator\Content --check
 ```
 
 ## Layout
@@ -80,8 +80,8 @@ python tools/make_tree_patterns.py <out>\SkiResortSimulator\Content --check
 | `skieo_creator/engine/` | writers for the cooked map data (heightmaps, providers, bounds, collision, frame, headers, materials) |
 | `web/` | the UI (HTML / CSS / JS) and vendored Leaflet + three.js |
 | `data/` | the cooked snow-shell template; `resort_templates.bin`, blank lift / trail save records (from `packaging/make_resort_templates.py`); the Mod Library's Lua mods (`mods/`), lift and building packs (`lifts/`) and UE4SS (`ue4ss/`) |
-| `tools/` | retoc.exe (MIT, https://github.com/trumank/retoc); `make_tree_patterns.py`, `package_mod.py` (below) |
-| `packaging/` | PyInstaller spec, build script, icon, version info, credits (`THIRD-PARTY.txt`), `verify_exe.py` |
+| `tools/` | retoc.exe (MIT, https://github.com/trumank/retoc) and its license, both shipped in the exe. Nothing else goes here: `verify_exe.py` fails the release build on any file in `tools/`, `web/` or `data/` the exe doesn't ship |
+| `packaging/` | PyInstaller spec, build script, icon, version info, credits (`THIRD-PARTY.txt`), `verify_exe.py`; developer scripts the exe doesn't ship, such as `make_tree_patterns.py` and `package_mod.py` (below) |
 | `docs/` | this file and the README's screenshots |
 | `tests/ui_drive.py` | scripted UI sessions with screenshots (`search`, `3d`, `3d-offline`, `numbox`, `osm`, ...) |
 | `tests/test_resort.py` | self-check of the trail and lift import rules on made-up data |

@@ -57,7 +57,7 @@ any), and your OK to ship it in the Map Creator.
 1. Check it against the game and the mods already in the library (the game must be installed; nothing is written):
 
    ```
-   python tools/package_mod.py TheirMod.zip --id their_mod --name "Their Mod" --author "Their Name" --about "What it does."
+   python packaging/package_mod.py TheirMod.zip --id their_mod --name "Their Mod" --author "Their Name" --about "What it does."
    ```
 
    Add `--logic` for a Blueprint mod whose paks aren't in a `LogicMods` folder. It reports **problems**, which stop

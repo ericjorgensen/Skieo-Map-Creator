@@ -1,5 +1,5 @@
 """Looking inside IoStore paks with retoc: which packages a pak has, and what a mod's own copies of the build menu's
-table and the snow cap list add. Used to package other modders' mods (tools/package_mod.py), to keep mods the player
+table and the snow cap list add. Used to package other modders' mods (packaging/package_mod.py), to keep mods the player
 installed by hand in the app's merged build menu and snow caps (modlib), and to check that a map package holds only a
 map (install). Reads paks; never writes into the game's files (the work folders are the caller's)."""
 import os

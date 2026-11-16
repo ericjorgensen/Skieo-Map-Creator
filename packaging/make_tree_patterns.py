@@ -2,7 +2,7 @@
 place in its forest's height range, slope, sun, wetness and ridges, and each species' sizes and conditions by height.
 The game's forests were generated offline by its developers; this measures them. Extract the maps first (retoc
 to-legacy with -f DA_BakedObstacles_Map_ -f Materials/Terrain/Generated/, see docs/DEVELOPMENT.md), then:
-usage: python tools/make_tree_patterns.py <extracted Content folder> [--check]"""
+usage: python packaging/make_tree_patterns.py <extracted Content folder> [--check]"""
 import json
 import re
 import sys
@@ -131,7 +131,7 @@ def main():
     by = {}
     for slug, o, h, (lat, biome) in game_maps():
         by.setdefault(biome, []).append((slug, o, h, lat))
-    out = dict(source='learned from the game\'s own maps by tools/make_tree_patterns.py',
+    out = dict(source='learned from the game\'s own maps by packaging/make_tree_patterns.py',
                features=dict(bands=ecology.BANDS, slope=ecology.SLOPE_EDGES, heat=ecology.HEAT_EDGES,
                              wet=ecology.WET_EDGES, ridge=ecology.RIDGE_EDGES), biomes={})
     for biome, ms in sorted(by.items()):

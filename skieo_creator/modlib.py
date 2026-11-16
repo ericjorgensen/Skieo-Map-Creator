@@ -20,7 +20,7 @@ Two game assets can only come from one pak: the build menu's table /Game/Data/DT
 BuildingEconomyRow in its paks, with its new rows) and the snow caps of its buildings ('snowcaps'), and refresh() makes
 them into STOCK_PAK from the player's own game files: a composite DT_BuildingEconomy over the game's table (renamed to
 STOCK_TABLE) and the installed mods' tables, and the game's registry with their entries (engine/shared_assets.py). A mod
-made to replace the whole table (most are) gets its copy of it renamed by tools/package_mod.py, shipped in its zip
+made to replace the whole table (most are) gets its copy of it renamed by packaging/package_mod.py, shipped in its zip
 ('full_tables', <zip>/tables/<name>.uasset/.uexp) and put BEFORE the game's table, so only its own rows stay and the
 game's current ones win. Paks the player put in ~mods by hand that bring their own table or snow caps are read the same
 way (modscan) and kept in. The game mounts STOCK_PAK above the mods (a ..._<n>_P pak gets a higher order than a plain

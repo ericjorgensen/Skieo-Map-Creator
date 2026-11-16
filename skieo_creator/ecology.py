@@ -1,8 +1,8 @@
 """Where each tree species grows, the way the game's own maps have it. The game's forests were generated offline by its
 developers (the game only loads them), so data/tree_patterns.json holds what its maps show, per biome: how each species'
 share shifts with a tree's place in the forest's height range, the slope, the sun, wetness and ridges (a multinomial
-model on those terrain classes), and each species' sizes and conditions by height; tools/make_tree_patterns.py learns it
-from the game's maps. The terrain features are computed here, the same way for the game's maps and for ours."""
+model on those terrain classes), and each species' sizes and conditions by height; packaging/make_tree_patterns.py
+learns it from the game's maps. The terrain features are computed here, the same way for the game's maps and ours."""
 import json
 
 import numpy as np

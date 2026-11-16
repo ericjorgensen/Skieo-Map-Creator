@@ -11,7 +11,7 @@ A mod that replaces the build menu's table (DT_BuildingEconomy) gets its copy re
 in its zip ('full_tables'), and one that replaces the snow cap list gets the entries the game lacks ('snowcaps'): the
 Map Creator merges both for every installed mod (modlib STOCK_PAK), which the game mounts above their paks.
 
-usage: python tools/package_mod.py <the mod as sent: a folder or zip> --id ID --name NAME --author AUTHOR
+usage: python packaging/package_mod.py <the mod as sent: a folder or zip> --id ID --name NAME --author AUTHOR
                                    [--about TEXT] [--key KEY] [--logic] [--write]
 --logic: its paks are Blueprint mods (UE4SS's BPModLoaderMod loads them from Content/Paks/LogicMods), when they aren't
 in a folder named LogicMods already."""

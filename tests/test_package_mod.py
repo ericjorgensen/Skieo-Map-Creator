@@ -1,4 +1,4 @@
-"""Self-check of packaging someone else's mod (tools/package_mod.py), of the app merging it and mods installed by hand
+"""Self-check of packaging someone else's mod (packaging/package_mod.py), of the app merging it and mods put in by hand
 (modlib STOCK_PAK), and of map packages holding only maps (install.Game.only_a_map), with stand-in mods made from the
 game's own files; skipped without the game. Writes only to temporary folders (inside the game folder for hard links).
 usage: python tests/test_package_mod.py"""
@@ -10,7 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / 'tools'))
+sys.path.insert(0, str(ROOT / 'packaging'))
 from skieo_creator import install, modlib, modscan, paths  # noqa: E402
 from skieo_creator.engine import shared_assets as sa  # noqa: E402
 import package_mod as pm  # noqa: E402
