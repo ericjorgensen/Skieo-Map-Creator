@@ -579,11 +579,14 @@ def _build(spec, dem, game, out_dir, cancel, progress):
 
     progress(0.02, 'Planting trees...')
     donors = {'mrg': trees.read_skob(gd['obs_ue']), 'sb': trees.read_skob(gd['sb_obs_ue'])}
+    # the whole forest (the game's density), then the slider's count kept, round the lifts and trails where it thins
+    km = spec['size_m'] / 1000.0
+    budget = trees.tree_budget(km, int(spec.get('max_trees', trees.DEFAULT_TREES)), bool(spec.get('experimental')))
     recs, table, hdr_tail, counts = trees.forest(
         H, fr.hmin, fr.sp, fr.sc, spec['biome'], spec['treeline'], spec['valley'], donors, game.species(),
-        game.biome_species(spec['biome']), spec['seed'], max_trees=int(spec.get('max_trees', trees.DEFAULT_TREES)),
+        game.biome_species(spec['biome']), spec['seed'], max_trees=trees.max_trees(km, True),
         tree_slope=float(spec.get('tree_slope', trees.TREE_SLOPE)), treeline_fade=float(spec.get('treeline_fade', 0.0)),
-        clear=clear, cover=cover, lat=spec['lat'])
+        clear=clear, cover=cover, lat=spec['lat'], budget=budget)
     obs_ua, obs_ue = obstacles_assets(gd, recs, table, hdr_tail, fr)
     obs_ua = names.rename(obs_ua, 'obs', '/Game/Generated/DA_BakedObstacles_' + DONOR_MAP, names.p_obs)
     cancel.check()

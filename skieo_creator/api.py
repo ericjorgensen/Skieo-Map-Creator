@@ -193,7 +193,7 @@ class Api:
         return dict(version=VERSION, app=APP_NAME, game=self._game_status(), biomes=biomes.listing(),
                     settings={k: self._settings.get(k) for k in SETTING_KEYS}, maps=self._maps(), token=server.TOKEN,
                     limits=dict(min_km=MIN_KM, max_km=MAX_KM, min_trees=trees.MIN_TREES, max_trees=trees.max_trees(MAX_KM),
-                                trees_per_km2=trees.TREES_PER_KM2,
+                                trees_per_km2=trees.TREES_PER_KM2, tree_cap=trees.TREE_BUDGET,
                                 min_slope=trees.MIN_TREE_SLOPE,
                                 max_slope=trees.MAX_TREE_SLOPE, default_slope=trees.TREE_SLOPE,
                                 default_fade=trees.TREELINE_FADE, max_fade=trees.MAX_TREELINE_FADE))
@@ -557,10 +557,12 @@ class Api:
         if not (BASE_MARGIN <= row <= builder.G - 1 - BASE_MARGIN and BASE_MARGIN <= col <= builder.G - 1 - BASE_MARGIN):
             raise UserError('Put the base area marker inside the square (not right at its edge).')
         treeline_m = float(params.get('treeline_m', biomes.default_treeline(biome, pv['lat'])))
+        experimental = bool(params.get('experimental'))         # more trees than TREE_BUDGET (the app warns first)
         return dict(name=name, lat=pv['lat'], lon=pv['lon'], size_m=size_m, size_km=pv['size_km'], biome=biome,
                     treeline=float(np.clip(treeline_m, 0, 9000)), valley=float(np.clip(float(params.get('valley_m') or 0), 0, 9000)),
-                    snow=float(np.clip(float(params.get('snow', 1.0)), 0.2, 3.0)),
-                    max_trees=int(np.clip(int(float(params.get('max_trees') or trees.DEFAULT_TREES)), trees.MIN_TREES, trees.max_trees(pv['size_km']))),
+                    snow=float(np.clip(float(params.get('snow', 1.0)), 0.2, 3.0)), experimental=experimental,
+                    max_trees=int(np.clip(int(float(params.get('max_trees') or trees.DEFAULT_TREES)), trees.MIN_TREES,
+                                          trees.max_trees(pv['size_km'], experimental))),
                     tree_slope=float(np.clip(float(params.get('tree_slope') or trees.TREE_SLOPE), trees.MIN_TREE_SLOPE, trees.MAX_TREE_SLOPE)),
                     treeline_fade=float(np.clip(float(params.get('treeline_fade', trees.TREELINE_FADE)), 0, trees.MAX_TREELINE_FADE)),
                     acres=int(np.clip(int(params.get('acres') or 0) or self._acres(size_m), 10, 50000)),
@@ -577,7 +579,8 @@ class Api:
         taken = {r['slug'] for r in self._records()} | {i[len(PREFIX):] for i in self._game.installed() if i.startswith(PREFIX)}
         slug = builder.new_slug(p['name'], taken)
         spec = dict((k, p[k]) for k in ('name', 'lat', 'lon', 'size_m', 'biome', 'treeline', 'valley', 'snow', 'max_trees',
-                                        'tree_slope', 'treeline_fade', 'acres', 'base_rc', 'base_latlon', 'seed', 'tg', 'source'))
+                                        'experimental', 'tree_slope', 'treeline_fade', 'acres', 'base_rc', 'base_latlon',
+                                        'seed', 'tg', 'source'))
         spec['slug'] = slug
         if p['osm']:                       # kept with the map, so a rebuild makes the same trails and lifts
             paths.atomic_write(paths.MAPS / slug / 'osm.json', p['osm'])

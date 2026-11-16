@@ -19,10 +19,11 @@ log = logging.getLogger(__name__)
 G = 2017
 STRIDE = 20
 BANDS = 10
-# The tree slider starts at, and goes up to, the game's own forest density over the map's area: its maps
-# average ~18,800 trees per km2 (Mad River Glen 19,007, Sugar Bowl 18,682), so 7.5M at 20 km; a forest over TREE_BUDGET
-# (below) then thins out. Trees load in square by square after the map opens, the game slow until done (the UI warns).
-# The game drops all trees past 1.5M unless its exe limit is raised (install.raise_tree_limit).
+# The tree slider starts at, and goes up to, the game's own forest density over the map's area (its maps average
+# ~18,800 trees per km2: Mad River Glen 19,007, Sugar Bowl 18,682) or TREE_BUDGET (below), whichever is less; in
+# experimental mode up to the density, 7.5M at 20 km. Its count is the most tree instances a map keeps (tree_budget).
+# Trees load in square by square after the map opens, the game slow until done (the UI warns). The game drops all
+# trees past 1.5M unless its exe limit is raised (install.raise_tree_limit).
 TREES_PER_KM2 = 18750
 DEFAULT_TREES = 250000         # about what the game's own maps have (Mad River Glen 195k, Sugar Bowl 256k)
 MIN_TREES = 25000
@@ -66,12 +67,14 @@ LONE = ((DEAD, 1.0), (KRUMMHOLZ, KRUMMHOLZ_SHARE))   # (state, share of the game
 SQUARE_M = 163.84             # the game's squares of trees (one instanced component per kind of tree in each)
 LONE_BLOCK = 6
 # What a forest costs the game each frame goes with the tree instances it draws: every tree, and the canopy of each
-# living broadleaf tree or larch (a second mesh), hardly with their triangles (its tree meshes have one LOD, trees are
-# hardly ever culled by distance). Sun Peaks (14 km, 3.6M trees): 47 fps on an RTX 5070 Ti, 133 without trees, ~4.5 ms
-# a frame per million trees; firs drawn with the spruce meshes (a third of the triangles) changed nothing. The game
-# itself stops at 1.5M trees and its own maps have up to 1.4M, so a forest of more than TREE_BUDGET instances
-# (data/tree_meshes.json: the meshes of each kind of tree) thins out, round the resort (within NEAR_M of the lifts and
-# trails) up to 1 / FAR_SHARE times as dense as NEAR_FADE_M further out; evenly on a map without the real resort.
+# living broadleaf tree or larch (a second mesh), hardly with their triangles (its trees are Nanite, by the help of
+# its SkiResortSimulator.Obstacle.CullDistanceScale: "0 = never cull, leaving the transition to Nanite LOD", which its
+# top Draw Distance sets). Sun Peaks (14 km, 3.6M trees): 47 fps on an RTX 5070 Ti, 133 without trees, ~4.5 ms a frame
+# per million trees; firs drawn with the spruce meshes (a third of the triangles) changed nothing. The game itself
+# stops at 1.5M trees and its own maps have up to 1.42M (Whistler), so a forest of more instances than its budget (the
+# tree slider's count, at most TREE_BUDGET without experimental mode; data/tree_meshes.json: the meshes of each kind
+# of tree) thins out, round the resort (within NEAR_M of the lifts and trails) up to 1 / FAR_SHARE times as dense as
+# NEAR_FADE_M further out; evenly on a map without the real resort.
 # Fewer trees, bigger ones: where a stand keeps few of its trees, its living ones grow a size (5 / 10 / 15 / 20 m, up
 # to the species' largest) with the odds that bring back its ground cover (a crown's area taken as its height squared).
 TREE_BUDGET = 1_500_000
@@ -182,8 +185,19 @@ def open_ground(H, hmin, sp, sc, treeline, valley):
     return mask
 
 
-def max_trees(size_km):
-    return int(round(TREES_PER_KM2 * size_km * size_km, -3))
+def max_trees(size_km, experimental=False):
+    """the top of the tree slider for a map size: the game's own forest density over its area, at most TREE_BUDGET
+    without experimental mode"""
+    full = int(round(TREES_PER_KM2 * size_km * size_km, -3))
+    return full if experimental else min(full, TREE_BUDGET)
+
+
+def tree_budget(size_km, count, experimental=False):
+    """the most tree instances a map keeps (forest's budget) for the slider's count: the count, but the whole forest at
+    the slider's top; never over TREE_BUDGET without experimental mode (None: no limit)"""
+    if count >= max_trees(size_km, True):
+        return None if experimental else TREE_BUDGET
+    return count if experimental else min(count, TREE_BUDGET)
 
 
 def plant(H, sp, sc, density_records, rng, open_mask, max_trees=DEFAULT_TREES, tree_slope=TREE_SLOPE, weight=None,
@@ -398,12 +412,12 @@ def _thin_odds(x, y, cost, budget, clear):
 
 
 def forest(H, hmin, sp, sc, biome, treeline, valley, donors, species, biome_species, seed, max_trees=DEFAULT_TREES,
-           tree_slope=TREE_SLOPE, treeline_fade=0.0, clear=None, cover=None, lat=45.0, budget=None):
+           tree_slope=TREE_SLOPE, treeline_fade=0.0, clear=None, cover=None, lat=45.0, budget=TREE_BUDGET):
     """-> (record bytes, table bytes, header tail, {species: count})
     donors: {'mrg': skob, 'sb': skob}; species: {short name: [(size, state, trunk)]}; biome_species: short names;
-    cover: optional share (0..1 per vertex) of the forest density to keep (the real tree cover round a resort);
-    lat: the map's latitude (where the sun stands); budget: the most tree instances (trees and canopies) the game
-    should draw (TREE_BUDGET)"""
+    max_trees: plant at most this many, evenly; cover: optional share (0..1 per vertex) of the forest density to keep
+    (the real tree cover round a resort); lat: the map's latitude (where the sun stands); budget: the most tree
+    instances (trees and canopies) to keep, thinning out round the resort (tree_budget; None: all)"""
     rng = np.random.default_rng(seed)
     spec = biomes.BIOMES[biome]
     hdr_tail = donors['mrg']['hdr'][16:]
@@ -535,11 +549,10 @@ def forest(H, hmin, sp, sc, biome, treeline, valley, donors, species, biome_spec
             rep_size = _draw(sc4[stand[rep], pick[rep], :, st], rng)         # (rows of blocks without any: unused)
             r = rep[grp[flag]]
             pick[flag], size[flag], state[flag], vpick[flag] = pick[r], rep_size[grp[flag]], st, vpick[r]
-    budget = TREE_BUDGET if budget is None else budget
     kind = lambda n, t: tuple(species[n][_pick_variant(species[n], 0, t, np.zeros(1, np.int64))[0]])  # as drawn below
     per_kind = tree_meshes([('DA_TreeSpecies_' + n,) + kind(n, t) for n in names for t in range(4)])[:, 0]
     cost = per_kind.reshape(S, 4)[pick, state]             # instances the game draws per tree (alike at every size)
-    if float(cost.sum()) > budget:
+    if budget is not None and float(cost.sum()) > budget:
         odds = _thin_odds(x, y, cost, budget, clear)
         keep = rng.random(m) < odds
         kept = np.nonzero(keep)[0]                         # never over it (the game drops every tree past 1.5M):

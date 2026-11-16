@@ -7,12 +7,16 @@ Maps made with an older version show **Rebuild recommended** in My Maps: one cli
   every frame however far away, so its frame rate goes with the number of trees, not with the map or the kind of
   tree: Sun Peaks, 14 km at the game's full forest density (3.6 million trees), ran at about half the frame rate of a
   normal map, in every region (47-59 fps). The game's own maps never have more than about 1.4 million (Whistler 1.42
-  million; Chamonix spreads 1.37 million over 23 km). A map's forest now stops at 1.5 million trees and canopies (the
-  game draws the canopy of a broadleaf tree or larch as a second tree): past that it thins out, least around the lifts
-  and trails, and the trees it keeps grow a size larger so the forest still covers the ground (Sun Peaks: 47 fps
-  before, 66 now on an RTX 5070 Ti, with four fifths of its forest cover round the trails; the game's own Killington
-  runs at 74 there). That also keeps maps within the game's own tree limit, so they keep their trees after a game
-  update even before the Map Creator has been opened again.
+  million; Chamonix spreads 1.37 million over 23 km). The **Max trees** slider now stops at 1.5 million trees and
+  canopies on every map size (the game draws the canopy of a broadleaf tree or larch as a second tree). When a map's
+  whole forest would have more than the slider's count, it keeps the trees round the lifts and trails, where you play,
+  thinner further away, and the trees it keeps grow a size larger so the forest still covers the ground (Sun Peaks:
+  47 fps before, 66 now on an RTX 5070 Ti, with four fifths of its forest cover round the trails; the game's own
+  Killington runs at 74 there). That also keeps maps within the game's own tree limit, so they keep their trees after
+  a game update even before the Map Creator has been opened again.
+- **Experimental mode** (under the slider) lets it go up to the game's full forest density, 7.5 million at 20 km,
+  after a warning of what that costs: Sun Peaks with 3.6 million trees runs at 47 fps, and a game update hides the
+  trees of a map over 1.5 million until the Map Creator is opened again. A map made in it keeps its count when rebuilt.
 - Maps show **Rebuild recommended**: rebuild the big ones for the smoother forest.
 
 ## v1.8.1

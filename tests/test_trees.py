@@ -99,8 +99,18 @@ assert share(low, 'Maple') > 3 * share(mid, 'Maple'), (share(low, 'Maple'), shar
 assert share(mid, 'Spruce') + share(mid, 'Fir') > share(low, 'Spruce') + share(low, 'Fir')
 assert (counts['Spruce'] + counts['Fir']) / len(out) > 0.6, counts
 
-# the same seed, the same forest
-assert plant(11)[0] == recs
+# the same seed, the same forest (with no budget: every tree it plants)
+assert plant(11, budget=None)[0] == recs
+
+# the tree slider: at most TREE_BUDGET on any map size (the game's own density on a small map), the density in
+# experimental mode; its count is the most instances a map keeps, its top the whole forest (experimental: no limit)
+cap = trees.TREE_BUDGET
+assert (trees.max_trees(20), trees.max_trees(20, True), trees.max_trees(5), trees.max_trees(5, True)) == \
+    (cap, 7500000, 469000, 469000)
+assert (trees.tree_budget(20, cap), trees.tree_budget(20, 900000), trees.tree_budget(20, 7500000)) == (cap, 900000, cap)
+assert (trees.tree_budget(5, 469000), trees.tree_budget(5, 300000)) == (cap, 300000)
+assert (trees.tree_budget(20, 3000000, True), trees.tree_budget(20, 7500000, True), trees.tree_budget(5, 469000, True)) \
+    == (3000000, None, None)
 
 # a forest of more tree instances than its budget thins out to it: round the resort (here a 600 m square in the middle)
 # 1 / FAR_SHARE times as dense as far from it, evenly without a resort. Broadleaf trees count their canopy too. The

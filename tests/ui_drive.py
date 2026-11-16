@@ -192,6 +192,27 @@ def drive(win):
         js(win, "document.getElementById('panel').querySelector('#tab-create').scrollTop = 99999")
         time.sleep(0.6)
         shot('81_treecap')
+        # experimental mode: a warning first (cancel keeps it off), then the slider up to the game's density and back
+        exp = "JSON.stringify([document.getElementById('expTrees').checked, " \
+              "!document.getElementById('expWarn').classList.contains('hidden')])"
+        typ('sizeOut', '20')
+        js(win, "document.getElementById('expTrees').click()")
+        time.sleep(0.6)
+        shot('82_exp_warning')
+        print('warning:', js(win, "document.getElementById('modalTitle').textContent"), flush=True)
+        js(win, "document.getElementById('modalNo').click()")
+        time.sleep(0.4)
+        print('cancelled ->', js(win, exp), js(win, trees), flush=True)
+        js(win, "document.getElementById('expTrees').click()")
+        time.sleep(0.6)
+        js(win, "document.getElementById('modalYes').click()")
+        time.sleep(0.4)
+        typ('treesOut', '5,000,000')
+        print('on, 5M typed at 20 km ->', js(win, exp), js(win, trees), flush=True)
+        shot('83_exp_on')
+        js(win, "document.getElementById('expTrees').click()")
+        time.sleep(0.4)
+        print('off again ->', js(win, exp), js(win, trees), flush=True)
         print('errors', js(win, "JSON.stringify(window.__errs || [])"), flush=True)
     if SCEN == 'bigtrees':                                     # 20 km map with the most trees, created and installed
         def typ(box, text):

@@ -129,15 +129,36 @@ function drawSquare() {
   fitTrees();
 }
 
-// a new map size selects the game's own forest density for it (also the most); moving the square keeps a lowered count
+// the slider goes up to the game's own forest density for the map's size, at most the tree cap unless experimental
+// mode is on; a new map size selects the most without it, moving the square keeps a lowered count
 function fitTrees() {
   const t = $('trees');
   if (!S.limits.trees_per_km2) return;
-  t.max = Math.round(S.limits.trees_per_km2 * S.sq.km * S.sq.km / 1000) * 1000;
-  if (S.treesKm !== S.sq.km) t.value = t.max;
+  const full = Math.round(S.limits.trees_per_km2 * S.sq.km * S.sq.km / 1000) * 1000;
+  t.max = $('expTrees').checked ? full : Math.min(full, S.limits.tree_cap);
+  if (S.treesKm !== S.sq.km) t.value = Math.min(full, S.limits.tree_cap);
   S.treesKm = S.sq.km;
   showNum('trees');
 }
+
+const EXP_WARNING = `The game draws every tree, with its shadow and its sway in the wind, on every frame, however far away, so its frame rate goes down with every tree. Its own maps never have more than about 1.4 million (Whistler 1.42 million, Chamonix 1.37 million over 23 km), and the Map Creator keeps a map to 1.5 million trees and canopies.
+
+Experimental mode lets the slider go up to the game's full forest density for the map's size: 3.7 million at 14 km, 7.5 million at 20 km. Measured on Sun Peaks (14 km) with an RTX 5070 Ti:
+• 1.5 million trees: 66 fps
+• 3.6 million trees: 47 fps
+A slower PC loses about the same share (an estimate: around 20-25 fps with 3.6 million on a PC half as fast).
+
+Also:
+• The trees take longer to fill in after the map opens, and the game uses more memory.
+• The game drops every tree of a map with more than 1.5 million. The Map Creator lifts that limit in the game, but a game update puts it back: such maps show no trees until you open the Map Creator again.
+• Maps you share run just as slowly for other players.`;
+$('expTrees').onchange = async () => {
+  if ($('expTrees').checked && !(await confirmBox('Experimental mode: more trees', EXP_WARNING, 'Switch it on'))) {
+    $('expTrees').checked = false;
+  }
+  $('expWarn').classList.toggle('hidden', !$('expTrees').checked);
+  fitTrees();
+};
 
 function moveSquare(lat, lon) {
   S.sq.lat = Math.max(-84, Math.min(84, lat));
@@ -627,7 +648,7 @@ $('createBtn').onclick = async () => {
   const r = await call('create', {
     name, lat: S.preview.lat, lon: S.preview.lon, size_km: S.preview.size_km, biome: $('biome').value,
     treeline_m: +$('treeline').value, snow: +$('snow').value, valley_m: +$('valley').value, max_trees: +$('trees').value,
-    tree_slope: +$('slope').value, treeline_fade: +$('fade').value,
+    experimental: $('expTrees').checked, tree_slope: +$('slope').value, treeline_fade: +$('fade').value,
     base: S.preview.base,             // flattest low ground, picked when the terrain loaded (with real lifts: their base)
     osm: $('osm').checked && !!S.osm, osm_skip: S.osmSkip ? [...S.osmSkip] : [],
   });
