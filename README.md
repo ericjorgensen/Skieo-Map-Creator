@@ -24,10 +24,10 @@ Fan-made; not affiliated with or endorsed by the developers of Ski-E-O!.
 - **Any mountain on Earth.** Search a ski area, mountain or town, drag the square over it (3 to 20 km wide) and load
   the real elevation: USGS 10 m data in the US, about 30 m everywhere else.
 - **Real trails and lifts.** Switch on **Real trails and lifts** and the ski area's runs and lifts from
-  OpenStreetMap are built into the map, ready when you start a New Game. Near the runs the forest follows the real
-  tree cover, so open bowls stay open and glades stay wooded.
-- **A forest that fits.** The game's own tree species for the region, up to the treeline, with a tree limit for
-  slower PCs.
+  OpenStreetMap are built into the map, ready when you start a New Game, each run as wide as its real cut through
+  the forest. Near the runs the forest follows the real tree cover, so open bowls stay open and glades stay wooded.
+- **A forest that fits.** The tree species of the game's own maps of the region, mixed and grouped in stands the way
+  they are there, with conifers near the summits, up to the treeline, and a tree limit for slower PCs.
 - **Snow like the game's own maps.** Piles, banks and drifts build up through the winter.
 - **3D preview.** Look the terrain over in 3D before you build it.
 - **Installs itself.** The map shows up on the game's world map in its real region, with its real elevations and
@@ -87,7 +87,10 @@ Extras for the game, installed and removed with one click in the Map Creator (cl
 | **Doppelmayr D-Line R2 Six** and **R2 Gondola** | Two new lifts in the build menu |
 
 The in-game mods (the cheat menu, Anarchy and Speed Control) run on the [UE4SS](https://github.com/UE4SS-RE/RE-UE4SS)
-mod loader: the Map Creator installs it if you don't have it, and removes it again with the last mod that needs it.
+mod loader: the Map Creator installs it if you don't have it, and removes it again with the last mod that needs it
+(unless other mods use it).
+
+Made a mod and want it in the Mod Library? See [docs/MODDING.md](docs/MODDING.md).
 
 ## If something goes wrong
 

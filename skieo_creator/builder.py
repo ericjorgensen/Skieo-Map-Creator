@@ -54,11 +54,13 @@ ENTRY_FORMAT = 3
 #   6 (1.1.5): full forest right up to the tree slope (no thinning before it)
 #   7 (1.1.6): the terrain textures' grid scale is the map's own (was the donor's: wrong lighting, lines at tile borders)
 #   8 (1.4.0): for the full game; real size only (no Diorama variant in the map list)
-RECIPE = 8
-RECIPE_OSM = 12                                   # with the real trails and lifts: 9 (1.6.1) without the glades,
+#   9 (1.8.0): forests in stands of the species the game's own maps of the biome have, none broadleaf near the summits
+RECIPE = 9
+RECIPE_OSM = 13                                   # with the real trails and lifts: 9 (1.6.1) without the glades,
                                                   # 10 (1.6.2) a run drawn twice in OSM built once, 11 (1.7.2) the
                                                   # forest round the resort follows the real tree cover, 12 (1.7.3)
-                                                  # trail curves follow bends (no folded loops)
+                                                  # trail curves follow bends (no folded loops), 13 (1.8.0) the new
+                                                  # forests, and each run as wide as its real cut through the forest
 BUILD_LOCK = threading.Lock()                     # frame.py holds the map frame globally: one build at a time
 
 

@@ -14,14 +14,17 @@ For players, see the [README](../README.md).
    - **Heights and scale:** landscape heights and all their mip levels (made the way Unreal makes them), edge-normal
      rings and grid scale (`engine/terrain_write.py`, `engine/provider_write.py`); component bounds and collision;
      the map frame (size, height scale); and the edge wall, whose edge the terrain is fitted to (`engine/map_frame.py`).
-   - **Forest:** in the game's baked-obstacle format, with the biome's own tree species (`trees.py`, `biomes.py`).
+   - **Forest:** in the game's baked-obstacle format (`trees.py`): stands of the tree species the game's own maps of
+     the biome have, mixed and placed by height, slope, sun, wetness and ridges as there (`ecology.py`,
+     `data/tree_patterns.json`, see below), conifers only near the summits (`biomes.py`).
    - **Snow piles:** written from a cooked template mesh (`shells.py`, `data/shell_template.*`).
    - **Everything else:** terrain material overrides (`engine/material_params.py`), the height texture, the map
      preview, the starting save (ticket office on the base area), and the map list entry. Every renamed string keeps
      its length.
    - **Real trails and lifts** (optional, `resort.py`): the ski area's OpenStreetMap lifts and pistes become the
      game's own lift and trail records in the starting save (read and written with `engine/gvas_tree.py`, record
-     layouts from `data/resort_templates.bin`), the forest leaves their corridors clear, and the map list entry's
+     layouts from `data/resort_templates.bin`), each run's curves as wide as its real cut through the forest in the
+     satellite canopy heights (`resort._cuts`), the forest leaves their corridors clear, and the map list entry's
      `InitialSave` makes New Game start from that save. Glades are left out: the ones OSM marks, and runs under tree
      canopy with no cleared corridor in the satellite canopy heights (`canopy.py`). A run drawn twice in OSM is built
      once. Within 300 m of the runs, glades and lifts the forest follows the real tree cover from the same canopy
@@ -33,8 +36,12 @@ The window is a local web UI (`web/`: Leaflet map, three.js 3D preview) shown by
 serves it on 127.0.0.1, with a token-protected tile proxy on its own port.
 
 The Mod Library (`modlib.py`) copies the in-game Lua mods from `data/mods` into the game's `Binaries/Win64/ue4ss/Mods`
-(installing UE4SS from `data/ue4ss` when the game doesn't have it) and the lift and building packs from `data/lifts`
-into `Content/Paks/~mods`.
+(installing UE4SS from `data/ue4ss` when the game doesn't have it) and the pak mods from `data/lifts` into
+`Content/Paks/~mods` (Blueprint mods: `Content/Paks/LogicMods`). The build menu's table and the snow cap list can only
+come from one pak, so it merges them for all installed mods into its own pak, made from the player's game files
+(`engine/shared_assets.py`), keeping what mods installed by hand add (`modscan.py`, which also checks that a map
+package holds only a map). Mods by other modders are packaged into it with `tools/package_mod.py`:
+[MODDING.md](MODDING.md).
 
 ## Run from source
 
@@ -54,6 +61,17 @@ packaging\build.bat
 
 This makes `dist\SkiEO-Map-Creator.exe`, a single file that bundles `web/`, `data/` and `tools/retoc.exe`.
 
+## Data learned from the game
+
+`data/tree_patterns.json` holds how each biome's tree species are spread over the game's own maps. To make it again
+(after a game update that changes the maps' forests), extract the maps' forests and height textures, then run the
+learner on them:
+
+```
+tools\retoc.exe to-legacy --no-shaders -f DA_BakedObstacles_Map_ -f Materials/Terrain/Generated/ <game>\SkiResortSimulator\Content\Paks <out>
+python tools/make_tree_patterns.py <out>\SkiResortSimulator\Content --check
+```
+
 ## Layout
 
 | Path | What |
@@ -62,7 +80,7 @@ This makes `dist\SkiEO-Map-Creator.exe`, a single file that bundles `web/`, `dat
 | `skieo_creator/engine/` | writers for the cooked map data (heightmaps, providers, bounds, collision, frame, headers, materials) |
 | `web/` | the UI (HTML / CSS / JS) and vendored Leaflet + three.js |
 | `data/` | the cooked snow-shell template; `resort_templates.bin`, blank lift / trail save records (from `packaging/make_resort_templates.py`); the Mod Library's Lua mods (`mods/`), lift and building packs (`lifts/`) and UE4SS (`ue4ss/`) |
-| `tools/` | retoc.exe (MIT, https://github.com/trumank/retoc) |
+| `tools/` | retoc.exe (MIT, https://github.com/trumank/retoc); `make_tree_patterns.py`, `package_mod.py` (below) |
 | `packaging/` | PyInstaller spec, build script, icon, version info, credits (`THIRD-PARTY.txt`), `verify_exe.py` |
 | `docs/` | this file and the README's screenshots |
 | `tests/ui_drive.py` | scripted UI sessions with screenshots (`search`, `3d`, `3d-offline`, `numbox`, `osm`, ...) |

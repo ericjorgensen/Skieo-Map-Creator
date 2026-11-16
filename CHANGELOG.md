@@ -2,6 +2,32 @@
 
 Maps made with an older version show **Rebuild recommended** in My Maps: one click on Rebuild gives them the fixes.
 
+## v1.8.0
+- **Forests like the game's own.** Trees grow in stands, their species mixed the way the game's own maps of the
+  region have them (learned from those maps): in the Northeast mostly spruce and fir with birch, and maple and oak on
+  the lower slopes; in the Alps spruce with birch, pine and larch; and so on for every region. Broadleaf trees stay off
+  the summits: up there, to the treeline, it's conifers.
+- **No more lag with the trees hidden.** Hiding the trees (the toggle on the right) made custom maps stutter: the game
+  then goes over every group of trees each frame, and custom maps had far more groups than the game's own. Forests in
+  stands have fewer than the game's own maps (Stratton: 117,000 before, 29,000 now).
+- **Real trails at their real width.** With **Real trails and lifts**, each run is as wide as its cut through the
+  forest in the satellite tree heights, so cat tracks are narrow and the big runs wide (they were all 26 to 40 m), and
+  the forest is cleared along the real cut. Runs in the open keep their usual width. Resorts you already started keep
+  their trails: start a New Game on the rebuilt map to get the new ones.
+- **Mod Library: ready for other modders' mods.** Mods by other modders can be added to the Mod Library (checked and
+  packaged by Oof, credited to their author). The build menus and snow caps of all installed mods are merged, so the
+  buildings of several packs all show up, and a game update's new buildings stay in. The UE4SS the Map Creator
+  installs now comes with UE4SS's standard Lua libraries and Blueprint mod loader and its usual settings, and it is
+  never removed while other mods use it. Modders: see [docs/MODDING.md](docs/MODDING.md).
+- **Oof's Anarchy** and **Oof's Speed Control** hide their badge and buttons under the pause menu, the map, and the
+  settings and save screens.
+- **Oof's Simple Cheat Menu:** "no tired staff" works in every resort (it changed settings the game had replaced with
+  a new game's own).
+- Map packages can't replace other mods' files or hold anything but a map. The Map Creator no longer reads the game's
+  186 MB exe every few seconds while the game runs, and cleans up work folders it had to leave in the game folder.
+- Maps show **Rebuild recommended**: rebuild them for the new forests (and, with Real trails and lifts, the new trail
+  widths).
+
 ## v1.7.6
 - **Mod Library: two new mods**, each on its own (no cheat menu needed) or together with it:
   - **Oof's Anarchy**: build anywhere. **Ctrl+A** switches it on and off in game. While it is on, the buildings and
