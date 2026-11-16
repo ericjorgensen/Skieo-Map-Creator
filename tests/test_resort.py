@@ -177,6 +177,16 @@ assert {'Long Run', 'Green Path', 'Star Dust'} <= kept and not kept & {'Tree Run
 assert [t['road'] for t in pl3['trails'] if t['name'] == 'Star Dust'] == [True]      # a road named like a glade
 assert gone == {'Tree Run', 'Tree Bowl', 'Moon Dance', 'Star Dust'}, gone
 assert pl3['skipped'][resort.GLADE] == 4 and sum(o['kind'] == 'glade' for o in resort.overlay(pl3, terrain)) == 5
+# runs as wide as their corridor through the forest (CUT_*): Long Run's cleared strip is 12 m wide, beside its line, so
+# its curves are CUT_SHARE of that and the forest is cleared along the strip; Green Path is under the trees all the way
+# (no corridor to see): its usual width
+lr = next(t for t in pl3['trails'] if t['name'] == 'Long Run')
+assert all(abs(w - resort.CUT_SHARE * 12.0) < 0.5 for w in lr['widths']), lr['widths']
+assert next(t for t in pl3['trails'] if t['name'] == 'Green Path')['widths'][0] == 40.0
+m3, r3 = resort.clear_mask(pl3, size)
+lx = 1800 + (2000 - 900) * 40 / 2200
+assert m3[int(2000 / r3), int((lx + 14) / r3)], 'the strip is cleared'
+assert not m3[int(2000 / r3), int((lx + 25) / r3)] and not m3[int(2000 / r3), int((lx - 14) / r3)], 'the forest beside'
 tagged_only = resort.plan(osm3, terrain)                 # no satellite check: only the marked glades, and their areas
 assert {t['name'] for t in tagged_only['trails']} >= {'Tree Run', 'Tree Bowl', 'Long Run', 'Star Dust'}
 assert not tagged_only['notes']
