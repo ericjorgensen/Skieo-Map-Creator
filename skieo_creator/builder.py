@@ -56,13 +56,15 @@ ENTRY_FORMAT = 3
 #   8 (1.4.0): for the full game; real size only (no Diorama variant in the map list)
 #   9 (1.8.0): forests in stands of the species the game's own maps of the biome have, none broadleaf near the summits
 #  10 (1.8.1): dead trees and living krummholz one by one among healthy ones, no dying (were whole stands: bare tops)
-RECIPE = 10
-RECIPE_OSM = 14                                   # with the real trails and lifts: 9 (1.6.1) without the glades,
+#  11 (1.8.2): forests within the game's budget of tree instances (big maps ran at half the frame rate)
+RECIPE = 11
+RECIPE_OSM = 15                                   # with the real trails and lifts: 9 (1.6.1) without the glades,
                                                   # 10 (1.6.2) a run drawn twice in OSM built once, 11 (1.7.2) the
                                                   # forest round the resort follows the real tree cover, 12 (1.7.3)
                                                   # trail curves follow bends (no folded loops), 13 (1.8.0) the new
                                                   # forests, and each run as wide as its real cut through the forest,
-                                                  # 14 (1.8.1) dead trees and krummholz one by one
+                                                  # 14 (1.8.1) dead trees and krummholz one by one, 15 (1.8.2) the
+                                                  # tree budget
 BUILD_LOCK = threading.Lock()                     # frame.py holds the map frame globally: one build at a time
 
 

@@ -41,9 +41,14 @@ for s in ('Spruce', 'Fir'):                                          # like the 
     variants[s].append((0, 3, 'SM_%s_krummholz_dead' % s))
 
 
-def plant(seed):
+def plant(seed, **kw):
     return trees.forest(H, HMIN, SP, SC, 'Northeast', TOP, 0.0, {'mrg': donor, 'sb': donor}, variants, names, seed,
-                        max_trees=400000, lat=44.0)
+                        max_trees=400000, lat=44.0, **kw)
+
+
+def positions(recs):
+    r = np.frombuffer(recs, np.uint8).reshape(-1, trees.STRIDE)
+    return r[:, 0:4].copy().view('<i4').ravel() / 1000.0, r[:, 4:8].copy().view('<i4').ravel() / 1000.0
 
 
 recs, table, _, counts = plant(11)
@@ -96,5 +101,30 @@ assert (counts['Spruce'] + counts['Fir']) / len(out) > 0.6, counts
 
 # the same seed, the same forest
 assert plant(11)[0] == recs
+
+# a forest of more tree instances than its budget thins out to it: round the resort (here a 600 m square in the middle)
+# 1 / FAR_SHARE times as dense as far from it, evenly without a resort. Broadleaf trees count their canopy too.
+meshes = trees.tree_meshes(tab)[:, 0]                                # (made-up meshes: as their species in that state)
+live_broad = np.array([e[0] in ('DA_TreeSpecies_Birch', 'DA_TreeSpecies_Maple', 'DA_TreeSpecies_Oak') and
+                       e[2] != trees.DEAD for e in tab])
+assert (meshes == np.where(live_broad, 2, 1)).all(), list(zip(tab, meshes))
+cost = float(meshes[v].sum())
+mask = np.zeros((2600, 2600), bool)
+mask[1185:1335, 1185:1335] = True                                    # 4 m cells: x, y 4,740-5,340 m
+far_from = lambda xx, yy: np.maximum(np.maximum(abs(xx - 5040) - 300, abs(yy - 5040) - 300), 0)   # (square metric)
+d0 = far_from(x, y)
+for clear in ((mask, 4.0), None):
+    r2, t2, _, c2 = plant(11, clear=clear, budget=cost / 2)
+    x2, y2 = positions(r2)
+    v2 = np.frombuffer(r2, np.uint8).reshape(-1, trees.STRIDE)[:, 18:20].copy().view('<u2').ravel()
+    got = float(trees.tree_meshes(trees.table_entries(t2))[:, 0][v2].sum())
+    assert 0.48 * cost < got <= cost / 2, (got / cost, clear is None)        # never over (the game's own limit)
+    if clear is not None:
+        d2 = far_from(x2, y2)                                        # (the square itself is cleared of trees)
+        near = ((d2 > 100) & (d2 < trees.NEAR_M - 100)).sum() / ((d0 > 100) & (d0 < trees.NEAR_M - 100)).sum()
+        far = (d2 > trees.NEAR_M + trees.NEAR_FADE_M + 100).sum() / (d0 > trees.NEAR_M + trees.NEAR_FADE_M + 100).sum()
+        assert 0.55 < near < 0.85 and abs(far / near - trees.FAR_SHARE) < 0.05, (near, far)
+    else:
+        assert abs(len(x2) / len(x) - 0.5) < 0.02, len(x2) / len(x)
 
 print('trees: all checks passed (%.1f kinds per square, %d trees)' % (per_square, len(out)))

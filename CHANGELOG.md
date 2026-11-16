@@ -2,6 +2,17 @@
 
 Maps made with an older version show **Rebuild recommended** in My Maps: one click on Rebuild gives them the fixes.
 
+## v1.8.2
+- **Big maps run as smoothly as the game's own.** The game draws every tree, with its shadow and its sway in the
+  wind, on every frame however far away, so its frame rate goes with the number of trees, not with the map or the
+  kind of tree: Sun Peaks, 14 km at the game's full forest density (3.6 million trees), ran at about half the frame
+  rate of a normal map. A map's forest now stops at 1.5 million trees and canopies (the game draws the canopy of a
+  broadleaf tree or larch as a second tree), about what the game's own biggest maps draw: past that it thins out,
+  least around the lifts and trails (Sun Peaks: 47 fps before, 69 now on an RTX 5070 Ti; the game's own Killington
+  runs at 74 there). That also keeps maps within the game's own tree limit, so they keep their trees after a game
+  update even before the Map Creator has been opened again.
+- Maps show **Rebuild recommended**: rebuild the big ones for the smoother forest.
+
 ## v1.8.1
 - **Wooded summits, no dead patches.** Dead trees came a whole stand at a time, and near the summits whole stands were
   krummholz (low, wind-bent shrubs, many of them dead ones), so the tops looked bare. Now dead trees stand one by one

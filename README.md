@@ -27,7 +27,9 @@ Fan-made; not affiliated with or endorsed by the developers of Ski-E-O!.
   OpenStreetMap are built into the map, ready when you start a New Game, each run as wide as its real cut through
   the forest. Near the runs the forest follows the real tree cover, so open bowls stay open and glades stay wooded.
 - **A forest that fits.** The tree species of the game's own maps of the region, mixed and grouped in stands the way
-  they are there, with conifers near the summits, up to the treeline, and a tree limit for slower PCs.
+  they are there, with conifers near the summits, up to the treeline, and a tree limit for slower PCs. Big maps keep
+  their forest to what the game's own biggest maps draw (1.5 million trees and canopies), so they run as smoothly:
+  past that the forest thins out, least around the lifts and trails.
 - **Snow like the game's own maps.** Piles, banks and drifts build up through the winter.
 - **3D preview.** Look the terrain over in 3D before you build it.
 - **Installs itself.** The map shows up on the game's world map in its real region, with its real elevations and
@@ -101,9 +103,13 @@ Made a mod and want it in the Mod Library? See [docs/MODDING.md](docs/MODDING.md
   [Microsoft](https://go.microsoft.com/fwlink/p/?LinkId=2124703).
 - **The game closes the first time it starts after installing a map or a mod.** That can happen once: start it
   again.
+- **A big map runs slowly.** The game draws every tree, with its shadow and its sway in the wind, on every frame,
+  however far away, so its frame rate goes with the number of trees: Sun Peaks at 14 km with 3.6 million ran at half
+  the frame rate of a normal map. Maps built since 1.8.2 keep their forest to what the game's own biggest maps draw:
+  if yours shows **Rebuild recommended**, rebuild it.
 - **A custom map has no trees after a game update.** The game drops every tree of a map with more than 1.5 million,
   and the Map Creator raises that limit in the game's exe. A game update puts the old exe back: close the game, open
-  the Map Creator once, then start the game. Your maps need no rebuilding.
+  the Map Creator once, then start the game. Your maps need no rebuilding (and maps built since 1.8.2 stay under it).
 - **Anything else:** press **Copy diagnostics** at the bottom of the Map Creator and paste it into an
   [issue](https://github.com/oofbyte/Skieo-Map-Creator/issues). The log is
   `%LOCALAPPDATA%\SkiEO Map Creator\logs\creator.log`.

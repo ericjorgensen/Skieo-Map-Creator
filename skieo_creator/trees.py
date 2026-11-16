@@ -6,12 +6,13 @@ yaw / width / height bytes and a u16 index into the table. Every entry of the ga
 (size, state, trunk mesh) variant of the species' DA_TreeSpecies_* asset, so tables for any biome are built from those
 assets (species_variants) and stay consistent with what the game would bake itself.
 """
+import json
 import logging
 import struct
 
 import numpy as np
 
-from . import biomes, ecology
+from . import biomes, ecology, paths
 from .engine import legacy_header as lh
 
 log = logging.getLogger(__name__)
@@ -19,9 +20,9 @@ G = 2017
 STRIDE = 20
 BANDS = 10
 # The tree slider starts at, and goes up to, the game's own forest density over the map's area: its maps
-# average ~18,800 trees per km2 (Mad River Glen 19,007, Sugar Bowl 18,682), so 7.5M at 20 km. Millions of trees load in
-# square by square over several minutes after the map opens (7.5M on 20 km: up to ~10 min, slow until done; the UI
-# warns). The game drops all trees past 1.5M unless its exe limit is raised (install.raise_tree_limit).
+# average ~18,800 trees per km2 (Mad River Glen 19,007, Sugar Bowl 18,682), so 7.5M at 20 km; a forest over TREE_BUDGET
+# (below) then thins out. Trees load in square by square after the map opens, the game slow until done (the UI warns).
+# The game drops all trees past 1.5M unless its exe limit is raised (install.raise_tree_limit).
 TREES_PER_KM2 = 18750
 DEFAULT_TREES = 250000         # about what the game's own maps have (Mad River Glen 195k, Sugar Bowl 256k)
 MIN_TREES = 25000
@@ -64,6 +65,17 @@ KRUMMHOLZ_SHARE = 0.5
 LONE = ((DEAD, 1.0), (KRUMMHOLZ, KRUMMHOLZ_SHARE))   # (state, share of the game's odds)
 SQUARE_M = 163.84             # the game's squares of trees (one instanced component per kind of tree in each)
 LONE_BLOCK = 6
+# What a forest costs the game each frame goes with the tree instances it draws: every tree, and the canopy of each
+# living broadleaf tree or larch (a second mesh), hardly with their triangles (its tree meshes have one LOD, trees are
+# hardly ever culled by distance). Sun Peaks (14 km, 3.6M trees): 47 fps on an RTX 5070 Ti, 133 without trees, ~4.5 ms
+# a frame per million trees; firs drawn with the spruce meshes (a third of the triangles) changed nothing. The game
+# itself stops at 1.5M trees and its own maps have up to 1.4M, so a forest of more than TREE_BUDGET instances
+# (data/tree_meshes.json: the meshes of each kind of tree) thins out, round the resort (within NEAR_M of the lifts and
+# trails) up to 1 / FAR_SHARE times as dense as NEAR_FADE_M further out; evenly on a map without the real resort.
+TREE_BUDGET = 1_500_000
+NEAR_M, NEAR_FADE_M = 2500.0, 1000.0
+FAR_SHARE = 0.5
+_meshes = None
 CONIFERS = ('Fir', 'Spruce', 'Pine', 'WhitebarkPine', 'Hemlock', 'Larch', 'Sclerophyll')
 BROADLEAF = ('Aspen', 'Birch', 'Maple', 'Oak', 'MountainBirch', 'SouthernBeech', 'SnowGum')
 
@@ -333,12 +345,63 @@ def _pick_variant(variants, size, state, pick):
     return np.asarray(c)[pick % len(c)]
 
 
+def tree_meshes(table):
+    """(meshes the game draws for one tree, their triangles) of each table entry, as rows (data/tree_meshes.json; a
+    variant it doesn't know, say after a game update: as one of its species in that state, else one mesh)"""
+    global _meshes
+    if _meshes is None:
+        _meshes = json.loads(paths.resource('data', 'tree_meshes.json').read_text(encoding='utf-8'))
+        _meshes['by_state'] = {'%s|%s' % tuple(k.split('|')[0:3:2]): r for k, r in _meshes['variants'].items()}
+    v, by_state, d = _meshes['variants'], _meshes['by_state'], _meshes['default']
+    rows = []
+    for e in table:
+        sp = e[0].replace('DA_TreeSpecies_', '')
+        rows.append(v.get('%s|%d|%d|%s' % (sp, e[1], e[2], e[3])) or by_state.get('%s|%d' % (sp, e[2]), d))
+    return np.array(rows, np.float64).reshape(-1, 2)
+
+
+def _distance(clear, x, y, reach, cell=50.0):
+    """distance (m, up to reach) from each tree (x, y in m) to the nearest cleared ground (clear: (bool raster, m per
+    cell), row = y) on ~cell m squares"""
+    cm, res = clear
+    f = max(1, int(round(cell / res)))
+    n0, n1 = cm.shape[0] // f, cm.shape[1] // f
+    cur = cm[:n0 * f, :n1 * f].reshape(n0, f, n1, f).any(axis=(1, 3))
+    step = res * f
+    d = np.where(cur, 0.0, reach)
+    for i in range(1, int(reach / step) + 1):              # one square further each step
+        p = np.pad(cur, 1)
+        grown = (p[1:-1, 1:-1] | p[:-2, 1:-1] | p[2:, 1:-1] | p[1:-1, :-2] | p[1:-1, 2:]
+                 | p[:-2, :-2] | p[:-2, 2:] | p[2:, :-2] | p[2:, 2:])
+        d[grown & ~cur] = min(i * step, reach)
+        cur = grown
+    return d[np.clip((y / step).astype(np.int64), 0, n0 - 1), np.clip((x / step).astype(np.int64), 0, n1 - 1)]
+
+
+def _thin_odds(x, y, cost, budget, clear):
+    """odds of keeping each tree so the forest's instances (cost per tree) come to `budget`: within NEAR_M of cleared
+    ground (lifts, trails) up to 1 / FAR_SHARE times the odds NEAR_FADE_M further out (and never more than 1); the
+    same everywhere without the resort"""
+    w = np.ones(len(x))
+    if clear is not None and clear[0].any():
+        w -= (1.0 - FAR_SHARE) * np.clip((_distance(clear, x, y, NEAR_M + NEAR_FADE_M) - NEAR_M) / NEAR_FADE_M, 0, 1)
+    lo, hi = 0.0, 1.0 / w.min()
+    for _ in range(30):                                    # the scale k of the odds min(1, k w) that fits the budget
+        k = (lo + hi) / 2
+        if float((np.minimum(1.0, k * w) * cost).sum()) > budget:
+            hi = k
+        else:
+            lo = k
+    return np.minimum(1.0, lo * w)
+
+
 def forest(H, hmin, sp, sc, biome, treeline, valley, donors, species, biome_species, seed, max_trees=DEFAULT_TREES,
-           tree_slope=TREE_SLOPE, treeline_fade=0.0, clear=None, cover=None, lat=45.0):
+           tree_slope=TREE_SLOPE, treeline_fade=0.0, clear=None, cover=None, lat=45.0, budget=None):
     """-> (record bytes, table bytes, header tail, {species: count})
     donors: {'mrg': skob, 'sb': skob}; species: {short name: [(size, state, trunk)]}; biome_species: short names;
     cover: optional share (0..1 per vertex) of the forest density to keep (the real tree cover round a resort);
-    lat: the map's latitude (where the sun stands)"""
+    lat: the map's latitude (where the sun stands); budget: the most tree instances (trees and canopies) the game
+    should draw (TREE_BUDGET)"""
     rng = np.random.default_rng(seed)
     spec = biomes.BIOMES[biome]
     hdr_tail = donors['mrg']['hdr'][16:]
@@ -485,13 +548,11 @@ def forest(H, hmin, sp, sc, biome, treeline, valley, donors, species, biome_spec
 
     table, index = [], {}
     var = np.zeros(m, np.uint16)
-    counts = {}
     for sp_name in avail:
         vs = species[sp_name]
         mine = tgt_sp == sp_name
         if not mine.any():
             continue
-        counts[sp_name] = int(mine.sum())
         for s in range(4):
             for t in range(4):
                 sel = np.nonzero(mine & (size == s) & (state == t))[0]
@@ -505,6 +566,20 @@ def forest(H, hmin, sp, sc, biome, treeline, valley, donors, species, biome_spec
                         j = index[key] = len(table)
                         table.append(('DA_TreeSpecies_' + sp_name,) + key[1:])
                     var[sel[picks == vi]] = j
+    cost = tree_meshes(table)[:, 0][var]                   # instances the game draws per tree
+    budget = TREE_BUDGET if budget is None else budget
+    if float(cost.sum()) > budget:
+        keep = rng.random(m) < _thin_odds(x, y, cost, budget, clear)
+        kept = np.nonzero(keep)[0]                         # never over it (the game drops every tree past 1.5M):
+        keep[kept[np.cumsum(cost[kept]) > budget]] = False  # the last few chosen go (trees are in random order)
+        log.info('forest: %d tree instances over the budget of %d: %d of %d trees kept', cost.sum(), budget,
+                 int(keep.sum()), m)
+        rec, var = rec[keep], var[keep]
     rec[:, 18:20] = var.astype('<u2').view(np.uint8).reshape(-1, 2)
-    log.info('forest: %d trees, %s', m, ', '.join('%s %d' % kv for kv in sorted(counts.items(), key=lambda kv: -kv[1])))
+    counts = {}
+    for e, n in zip(table, np.bincount(var, minlength=len(table))):
+        if n:
+            counts[e[0].replace('DA_TreeSpecies_', '')] = counts.get(e[0].replace('DA_TreeSpecies_', ''), 0) + int(n)
+    log.info('forest: %d trees, %s', len(var),
+             ', '.join('%s %d' % kv for kv in sorted(counts.items(), key=lambda kv: -kv[1])))
     return rec.tobytes(), encode_table(table), hdr_tail, counts

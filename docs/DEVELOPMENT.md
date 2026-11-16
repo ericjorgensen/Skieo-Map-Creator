@@ -16,7 +16,11 @@ For players, see the [README](../README.md).
      the map frame (size, height scale); and the edge wall, whose edge the terrain is fitted to (`engine/map_frame.py`).
    - **Forest:** in the game's baked-obstacle format (`trees.py`): stands of the tree species the game's own maps of
      the biome have, mixed and placed by height, slope, sun, wetness and ridges as there (`ecology.py`,
-     `data/tree_patterns.json`, see below), conifers only near the summits (`biomes.py`).
+     `data/tree_patterns.json`, see below), conifers only near the summits (`biomes.py`). The game's frame rate goes
+     with the tree instances it draws (every tree and each living broadleaf or larch canopy: shadow and wind each frame,
+     however far), not with their triangles, so a forest over `trees.TREE_BUDGET` instances (as many as the game's
+     own biggest maps) thins out, least around the lifts and trails (`data/tree_meshes.json`: the meshes of each
+     kind of tree, see below).
    - **Snow piles:** written from a cooked template mesh (`shells.py`, `data/shell_template.*`).
    - **Everything else:** terrain material overrides (`engine/material_params.py`), the height texture, the map
      preview, the starting save (ticket office on the base area), and the map list entry. Every renamed string keeps
@@ -72,6 +76,15 @@ tools\retoc.exe to-legacy --no-shaders -f DA_BakedObstacles_Map_ -f Materials/Te
 python packaging/make_tree_patterns.py <out>\SkiResortSimulator\Content --check
 ```
 
+`data/tree_meshes.json` holds, for every kind of tree (species, size, state, trunk mesh), how many meshes the game
+draws for it (its trunk, and its canopy if it has one) and their triangles, measured from the game's tree meshes. To
+make it again (after a game update that changes the trees):
+
+```
+tools\retoc.exe to-legacy --no-shaders -f Meshes/Mountain/ -f DA_TreeSpecies_ <game>\SkiResortSimulator\Content\Paks <out>
+python packaging/make_tree_meshes.py <out>\SkiResortSimulator\Content
+```
+
 ## Layout
 
 | Path | What |
@@ -81,7 +94,7 @@ python packaging/make_tree_patterns.py <out>\SkiResortSimulator\Content --check
 | `web/` | the UI (HTML / CSS / JS) and vendored Leaflet + three.js |
 | `data/` | the cooked snow-shell template; `resort_templates.bin`, blank lift / trail save records (from `packaging/make_resort_templates.py`); the Mod Library's Lua mods (`mods/`), lift and building packs (`lifts/`) and UE4SS (`ue4ss/`) |
 | `tools/` | retoc.exe (MIT, https://github.com/trumank/retoc) and its license, both shipped in the exe. Nothing else goes here: `verify_exe.py` fails the release build on any file in `tools/`, `web/` or `data/` the exe doesn't ship |
-| `packaging/` | PyInstaller spec, build script, icon, version info, credits (`THIRD-PARTY.txt`), `verify_exe.py`; developer scripts the exe doesn't ship, such as `make_tree_patterns.py` and `package_mod.py` (below) |
+| `packaging/` | PyInstaller spec, build script, icon, version info, credits (`THIRD-PARTY.txt`), `verify_exe.py`; developer scripts the exe doesn't ship, such as `make_tree_patterns.py`, `make_tree_meshes.py` and `package_mod.py` (below) |
 | `docs/` | this file and the README's screenshots |
 | `tests/ui_drive.py` | scripted UI sessions with screenshots (`search`, `3d`, `3d-offline`, `numbox`, `osm`, ...) |
 | `tests/test_resort.py` | self-check of the trail and lift import rules on made-up data |
