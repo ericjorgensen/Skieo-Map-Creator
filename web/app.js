@@ -758,10 +758,11 @@ function renderMods(r) {
   if (!r.found) { $('modsList').innerHTML = '<div class="empty">Ski-E-O was not found.</div>'; return; }
   $('modsList').innerHTML = r.mods.map((m) => {
     const note = m.included ? 'Already in your own lift mod'
-      : m.on ? (m.note ? esc(m.note) : m.key ? `Installed: press ${esc(m.key)} in game` : 'Installed: in the build menu')
+      : m.on ? (m.note ? esc(m.note) : m.key ? `Installed: press ${esc(m.key)} in game` : m.menu ? 'Installed: in the build menu' : 'Installed')
       : 'Not installed';
     return `<div class="mrow" data-mod="${esc(m.id)}">
       <div class="mi"><h4>${esc(m.name)}</h4>
+        ${m.author ? `<div class="sub by">by ${esc(m.author)}</div>` : ''}
         ${m.about ? `<div class="sub">${esc(m.about)}</div>` : ''}
         <span class="badge${m.on ? '' : ' off'}">${note}</span></div>
       <div class="mbtns">
