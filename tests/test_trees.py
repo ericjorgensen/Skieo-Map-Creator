@@ -33,9 +33,12 @@ rec[:, 12:18] = rng.integers(0, 256, (n, 6))
 rec[:, 18:20] = kind.astype('<u2').view(np.uint8).reshape(-1, 2)
 donor = dict(hdr=bytes(32), table=trees.encode_table(ents), records=rec.tobytes())
 names = ['Spruce', 'Fir', 'Maple', 'Birch', 'Oak']
-variants = {s: [(z, c, 'SM_%s_%d_%d' % (s, z, c)) for z in range(4) for c in (0, 2)] for s in names}
+variants = {s: [(z, c, 'SM_%s_%d_%d' % (s, z, c)) for z in range(4) for c in ((0, 1, 2) if s in ('Spruce', 'Fir')
+                                                                              else (0, 2))] for s in names}
 for s in ('Spruce', 'Fir', 'Birch'):
     variants[s].append((0, 3, 'SM_%s_krummholz' % s))
+for s in ('Spruce', 'Fir'):                                          # like the game's: dead ones among its krummholz
+    variants[s].append((0, 3, 'SM_%s_krummholz_dead' % s))
 
 
 def plant(seed):
@@ -59,6 +62,21 @@ cells = (x // 163.84).astype(np.int64) * 100 + (y // 163.84).astype(np.int64)
 pairs = np.unique(cells * 4096 + v)
 per_square = (1 + broad[pairs % 4096]).sum() / len(np.unique(cells))
 assert per_square < 12, per_square                                   # the game's own maps: ~22
+
+# dead trees and krummholz stand one by one among the healthy, never as whole stands (they made dead patches and bare
+# tops): dead trees in nearly every square and nowhere many; near the top, living krummholz among conifers that stay
+# most of every square; no dying trees
+state = np.array([e[2] for e in tab])[v]
+_, si, sn = np.unique(cells, return_inverse=True, return_counts=True)
+dead_sq = (np.bincount(si, weights=state == trees.DEAD) / sn)[sn >= 100]
+assert (dead_sq > 0).mean() > 0.9 and dead_sq.max() < 0.3, np.percentile(dead_sq, [5, 50, 99, 100])
+top = z >= np.percentile(z, 90)
+_, ti, tn = np.unique(cells[top], return_inverse=True, return_counts=True)
+alive = (np.bincount(ti, weights=state[top] < trees.DEAD) / tn)[tn >= 50]
+assert alive.min() > 0.5 and (state[top] == trees.KRUMMHOLZ).mean() > 0.03, \
+    (alive.min(), (state[top] == trees.KRUMMHOLZ).mean())
+assert not (state == trees.DYING).any(), np.unique(state, return_counts=True)
+assert not any(e[2] == trees.KRUMMHOLZ and 'dead' in e[3].lower() for e in tab), tab
 
 # no maple, oak or birch near the top of the forest (past the summit rule's fade): the upper mountain is conifers
 t = trees._relief(H, SP, SC, HMIN, x, y, z, TOP)

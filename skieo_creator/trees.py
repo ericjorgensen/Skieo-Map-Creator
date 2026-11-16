@@ -34,7 +34,7 @@ TREE_SLOPE = 42.0
 MIN_TREE_SLOPE, MAX_TREE_SLOPE = 20.0, 55.0
 TREELINE_FADE, MAX_TREELINE_FADE = 0.0, 1000.0     # m below the treeline over which forest thins out (0 = sharp)
 # Forests grow in stands: patches about STAND_M across, each with the species of the game's own maps of the biome at
-# its height and ground (ecology), each species in one size and state per stand. The game draws trees with one
+# its height and ground (ecology), each species healthy and in one size per stand. The game draws trees with one
 # instanced component per 164 m square per kind of tree (species, size, state, trunk; two for broadleaf: trunk and
 # canopy) and, while trees are hidden (the right-hand toggle), walks every component every frame. With every kind in
 # every square a 9.7 km map had 117k components: 87 -> 37 fps with trees hidden, and gigabytes of memory. The game's
@@ -53,6 +53,17 @@ SUMMIT_FROM, SUMMIT_TO = 0.5, 0.7
 SUMMIT_FADE = 0.1             # above SUMMIT_TO the last broadleaf trees go over this much more of the way, tree by tree
 SUMMIT_R, VALLEY_R = 1500.0, 3000.0
 SUMMIT_BROADLEAF = ('MountainBirch', 'SnowGum', 'SouthernBeech')
+# Dead trees and krummholz stand one by one among the healthy trees, never as whole stands: each tree is as likely to be
+# dead as on the game's maps, and krummholz (near the tops of their forests) KRUMMHOLZ_SHARE as likely, always a living
+# one (the game's dead krummholz reads as dead trees), so the tops stay wooded. Over each block of LONE_BLOCK x
+# LONE_BLOCK of the game's squares, the trees in each such state take the species, size and mesh of one of them: one
+# more kind of tree per state in a square, not one per species or stand. No dying trees: the game's maps have few
+# (1-2% in most places), and one by one they would cost every square one more kind.
+DYING, DEAD, KRUMMHOLZ = 1, 2, 3                      # tree states (0 healthy)
+KRUMMHOLZ_SHARE = 0.5
+LONE = ((DEAD, 1.0), (KRUMMHOLZ, KRUMMHOLZ_SHARE))   # (state, share of the game's odds)
+SQUARE_M = 163.84             # the game's squares of trees (one instanced component per kind of tree in each)
+LONE_BLOCK = 6
 CONIFERS = ('Fir', 'Spruce', 'Pine', 'WhitebarkPine', 'Hemlock', 'Larch', 'Sclerophyll')
 BROADLEAF = ('Aspen', 'Birch', 'Maple', 'Oak', 'MountainBirch', 'SouthernBeech', 'SnowGum')
 
@@ -267,6 +278,16 @@ def _draw(w, rng):
     return np.minimum((u[:, None] > c).sum(axis=1), w.shape[1] - 1)
 
 
+def _one_of(flag, ids, n, rng):
+    """per id 0..n-1, the index of one of its flagged items at random (-1 where none)"""
+    idx = np.nonzero(flag)[0]
+    idx = idx[rng.permutation(len(idx))]
+    u, first = np.unique(ids[idx], return_index=True)
+    out = np.full(n, -1, np.int64)
+    out[u] = idx[first]
+    return out
+
+
 def _relief(H, sp, sc, hmin, x, y, elev, treeline):
     """where each tree stands between its valley (0) and the top of its forest (1): the lowest ground within VALLEY_R,
     and the highest ground within SUMMIT_R or the treeline (m, 0 = none) if that is lower; on ~50 m cells, 0 where the
@@ -299,6 +320,8 @@ def _pick_variant(variants, size, state, pick):
     def cands(pred):
         return [i for i, v in enumerate(variants) if pred(v)]
     c = cands(lambda v: v[0] == size and v[1] == state)
+    if state == KRUMMHOLZ:                                 # a living one: the dead krummholz meshes read as dead trees
+        c = [i for i in c if 'dead' not in variants[i][2].lower()] or c
     if not c and state == 3:
         c = cands(lambda v: v[0] == 0 and v[1] == 0)
     if not c and state == 1:
@@ -363,9 +386,10 @@ def forest(H, hmin, sp, sc, biome, treeline, valley, donors, species, biome_spec
     # Species as the game's own maps of the biome have them (ecology, learned from them): each tree's odds of each
     # species by its stand's height in the forest and its spot's slope, sun, wetness and ridge. A stand has the species
     # whose odds in it reach PRESENT (summit stands: conifers only), so like the game's maps the common species are
-    # nearly everywhere and the rare ones in patches; each in one (size, condition) per stand, drawn as the game's maps
-    # have that species at that height. Each tree takes one of its stand's species by its odds (scaled so the biome's
-    # mix holds) times a smooth field per species, so they gather in clumps like the game's.
+    # nearly everywhere and the rare ones in patches; each healthy and in one size per stand, drawn as the game's maps
+    # have that species at that height (dead trees and krummholz: LONE). Each tree takes one of its stand's
+    # species by its odds (scaled so the biome's mix holds) times a smooth field per species, so they gather in clumps
+    # like the game's.
     model = ecology.patterns()['biomes'].get(biome)
     names = [s for s in (model['species'] if model else avail) if s in avail] or avail
     S = len(names)
@@ -423,9 +447,30 @@ def forest(H, hmin, sp, sc, biome, treeline, valley, donors, species, biome_spec
     q *= boost
     pick = _draw(q, rng) if m else np.zeros(0, np.int64)
     del q
-    tgt_sp = np.asarray(names, object)[pick]
-    sc_pick = _draw(size_cond[np.arange(S)[None, :], st_band[:, None]].reshape(-1, 16), rng).reshape(n_st, S)
+    sc4 = size_cond[np.arange(S)[None, :], st_band[:, None]].reshape(n_st, S, 4, 4)     # stand, species, size, state
+    look = sc4.copy()
+    look[..., 1:] = 0.0                                                    # a species' look in a stand: healthy
+    sc_pick = _draw(look.reshape(-1, 16), rng).reshape(n_st, S)
     size, state = (sc_pick // 4)[stand, pick], (sc_pick % 4)[stand, pick]
+    odds = sc4.sum(axis=2) / np.maximum(sc4.sum(axis=(2, 3)), 1e-12)[..., None]          # stand, species, state
+    u = rng.random(m)
+    lone = []
+    for st, share in LONE:                                                 # each tree in one of them at most
+        p = share * odds[stand, pick, st]
+        lone.append((u >= 0) & (u < p))
+        u -= p
+    del u, p
+    vpick = stand_pick[stand]                                              # which of a look's meshes
+    if m:
+        block = LONE_BLOCK * SQUARE_M
+        nb = int((G - 1) * sp // block) + 1
+        grp = ((x // block).astype(np.int64) * nb + (y // block).astype(np.int64)) * 2 + summit   # (summit: conifers)
+        for (st, _), flag in zip(LONE, lone):                              # single trees, one kind per block
+            rep = _one_of(flag, grp, 2 * nb * nb, rng)
+            rep_size = _draw(sc4[stand[rep], pick[rep], :, st], rng)         # (rows of blocks without any: unused)
+            r = rep[grp[flag]]
+            pick[flag], size[flag], state[flag], vpick[flag] = pick[r], rep_size[grp[flag]], st, vpick[r]
+    tgt_sp = np.asarray(names, object)[pick]
     d_size = np.array([e[1] for e in d_ents], np.int64)[d_kind]
     for b in range(BANDS):                                 # yaw / width / height of a donor of that height and size
         in_band = band == b
@@ -452,7 +497,7 @@ def forest(H, hmin, sp, sc, biome, treeline, valley, donors, species, biome_spec
                 sel = np.nonzero(mine & (size == s) & (state == t))[0]
                 if not len(sel):
                     continue
-                picks = _pick_variant(vs, s, t, stand_pick[stand[sel]])
+                picks = _pick_variant(vs, s, t, vpick[sel])
                 for vi in np.unique(picks):
                     key = (sp_name,) + tuple(vs[vi])
                     j = index.get(key)
