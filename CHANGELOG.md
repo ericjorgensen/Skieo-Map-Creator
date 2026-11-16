@@ -2,6 +2,13 @@
 
 Maps made with an older version show **Rebuild recommended** in My Maps: one click on Rebuild gives them the fixes.
 
+## v1.8.1
+- **Wooded summits, no dead patches.** Dead trees came a whole stand at a time, and near the summits whole stands were
+  krummholz (low, wind-bent shrubs, many of them dead ones), so the tops looked bare. Now dead trees stand one by one
+  among the living, as often as on the game's own maps, and near the tops krummholz grows between full-size conifers,
+  only living ones. No more dying trees.
+- Maps show **Rebuild recommended**: rebuild them for the new forests.
+
 ## v1.8.0
 - **Forests like the game's own.** Trees grow in stands, their species mixed the way the game's own maps of the
   region have them (learned from those maps): in the Northeast mostly spruce and fir with birch, and maple and oak on
