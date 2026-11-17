@@ -110,6 +110,7 @@ class Api:
         self._search_rate = net.RateLimit(1.1)
         self._registry_checked = False
         self._old_mods_tried = set()           # game folders whose old Mod Library mods it tried to remove this run
+        self._old_mods_lock = threading.Lock()
         self._update = None                    # the newer release check_update found
         self._done = {}                        # main()'s: set 'exe' / 'old' and close the window to restart as them
 
@@ -233,17 +234,31 @@ class Api:
 
     def _remove_old_mods(self, folder):
         """once per game folder, with the game closed: what the Mod Library of 1.2 to 1.8 put into the game (mods come
-        from Z's Mod Loader now); what won't go is tried again at the next start"""
+        from Z's Mod Loader now); what won't go is tried again at the next two starts, then left (logged)"""
         key = os.path.normcase(os.path.abspath(str(folder)))
-        done = self._settings.get('old_mods_removed') or []
-        if key in done or key in self._old_mods_tried:
-            return
-        self._old_mods_tried.add(key)
+        if not self._old_mods_lock.acquire(blocking=False):
+            return                                      # (another status check is at it)
         try:
-            if oldmods.remove(folder):
-                self._settings.set(old_mods_removed=done + [key])
-        except Exception as ex:                         # never let this break the status check
-            log.warning('could not remove the old Mod Library\'s mods: %s', ex)
+            done = self._settings.get('old_mods_removed') or []
+            if key in done or key in self._old_mods_tried:
+                return
+            self._old_mods_tried.add(key)
+            try:
+                finished = oldmods.remove(folder)
+            except Exception as ex:                     # never let this break the status check
+                log.warning('could not remove the old Mod Library\'s mods: %s', ex)
+                finished = False
+            tries = dict(self._settings.get('old_mods_tries') or {})
+            tries[key] = tries.get(key, 0) + 1
+            if finished or tries[key] >= 3:
+                if not finished:
+                    log.warning('old Mod Library: gave up after %d tries; what is left can be deleted by hand', tries[key])
+                tries.pop(key, None)
+                self._settings.set(old_mods_removed=done + [key], old_mods_tries=tries)
+            else:
+                self._settings.set(old_mods_tries=tries)
+        finally:
+            self._old_mods_lock.release()
 
     @_safe
     def game_status(self):

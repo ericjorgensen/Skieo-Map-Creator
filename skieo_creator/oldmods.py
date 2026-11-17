@@ -1,11 +1,17 @@
 """What the Mod Library of versions 1.2 to 1.8 put into the game, taken out once (mods come from Z's Mod Loader now, and
 its installer won't install over that UE4SS): its UE4SS where its marker says it put it there and nothing else uses it,
 its Lua mods, its lift and building packs (only a version it shipped, by the hash of its .utoc) and the build menu pak
-it merged them into. Never touches maps, the map list, Z's Mod Loader or anything else of the player's. The game must be
-closed (it holds UE4SS and the paks)."""
+it merged them into (with its stamp). Never touches maps, the map list, Z's Mod Loader, files the Asset Pack Combiner
+manages or anything else of the player's, and never follows a link out of the game folder. The game must be closed
+(it holds UE4SS and the paks)."""
 import hashlib
+import json
 import logging
+import os
+import re
 import shutil
+import stat
+import sys
 from pathlib import Path
 
 from . import paths
@@ -34,6 +40,7 @@ PAKS = {                                                # its packs: the .utoc o
 }
 STOCK, STAMP = 'ZZZ_LiftStock_9_P', 'skieo_lift_stock.json'     # the merged build menu and snow caps (made on the PC)
 PAK_EXTS = ('.pak', '.ucas', '.utoc')                   # the .pak first: without it the game doesn't load the rest
+RMTREE_ERRORS = 'onexc' if sys.version_info >= (3, 12) else 'onerror'
 
 
 def _sha(p):
@@ -44,11 +51,43 @@ def _sha(p):
     return h.hexdigest()
 
 
+def _is_link(p):
+    """a symbolic link or a junction: only the link itself is ever removed, never what it points at"""
+    try:
+        return p.is_symlink() or (hasattr(p, 'is_junction') and p.is_junction())
+    except OSError:
+        return False
+
+
+def _drop_link(p):
+    try:
+        os.rmdir(p)                                     # a link to a folder, or a junction
+    except OSError:
+        os.unlink(p)
+
+
+def _writable(func, path, *_):
+    """shutil.rmtree's error handler: a read-only file is made writable and tried again"""
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
+
+
+def _drop_file(p):
+    try:
+        p.unlink()
+    except PermissionError:                             # (read-only)
+        os.chmod(p, stat.S_IWRITE)
+        p.unlink()
+
+
 def _unlink(files, gone, left):
     """remove these files in order, stopping at one that won't go"""
     for p in files:
         try:
-            p.unlink()
+            if _is_link(p):
+                _drop_link(p)
+            else:
+                _drop_file(p)
             gone.append(p)
         except FileNotFoundError:
             pass
@@ -59,23 +98,33 @@ def _unlink(files, gone, left):
 
 def _rmtree(d, gone, left, last=None):
     """folder d and all in it; the file `last` in it goes after everything else (a marker stays till the rest is gone)"""
-    if not d.is_dir():
+    try:
+        if _is_link(d):
+            _drop_link(d)
+            gone.append(d)
+            return
+        if not d.is_dir():
+            return
+    except OSError as e:
+        left.append('%s (%s)' % (d, e))
         return
     failed = []
     for c in d.iterdir():
         if last is not None and c.name == last:
             continue
         try:
-            if c.is_dir() and not c.is_symlink():
-                shutil.rmtree(c)
+            if _is_link(c):
+                _drop_link(c)
+            elif c.is_dir():
+                shutil.rmtree(c, **{RMTREE_ERRORS: _writable})
             else:
-                c.unlink()
+                _drop_file(c)
         except OSError as e:
             failed.append('%s (%s)' % (c, e))
     if not failed:
         try:
-            if last is not None:
-                (d / last).unlink(missing_ok=True)
+            if last is not None and (d / last).exists():
+                _drop_file(d / last)
             d.rmdir()
             gone.append(d)
             return
@@ -84,21 +133,32 @@ def _rmtree(d, gone, left, last=None):
     left.extend(failed)
 
 
+def _loads_other_folders(ini):
+    """UE4SS-settings.ini loads mods from more folders than ue4ss/Mods (as Z's Mod Loader sets it up)"""
+    try:
+        text = ini.read_bytes().decode('utf-8', 'replace')
+    except OSError:
+        return False
+    return any(re.match(r'\s*[+-]?\s*ModsFolderPaths\s*=', line) for line in text.splitlines())
+
+
 def _foreign(ue4ss, logic):
-    """why a UE4SS with the app's marker can't just go (another loader took it over, its files aren't the ones the
-    app put there, or other mods than the app's use it), or None"""
+    """why a UE4SS with the app's marker can't just go, or None: ('taken', why) it is not the app's UE4SS any more
+    (another loader took it over, or its files aren't the ones the app put there), ('used', why) other mods use it"""
     if any(ue4ss.glob('.skieo-loader*')) or (ue4ss / 'Mods' / 'SkiEOModsMenu').exists():
-        return "Z's Mod Loader uses it"
+        return 'taken', "Z's Mod Loader uses it"
     for p, known in ((ue4ss.parent / 'dwmapi.dll', DWMAPI), (ue4ss / 'UE4SS.dll', UE4SS_DLL)):
         if p.is_file() and _sha(p) not in known:
-            return p.name + ' is not the one the Map Creator installed'
+            return 'taken', p.name + ' is not the one the Map Creator installed'
+    if _loads_other_folders(ue4ss / 'UE4SS-settings.ini'):
+        return 'used', 'it loads mods from other folders too (ModsFolderPaths)'
     ours = {n.lower() for n in LUA + LIBS}
     mods = ue4ss / 'Mods'
     other = sorted(d.name for d in mods.iterdir() if d.is_dir() and d.name.lower() not in ours) if mods.is_dir() else []
     if other:
-        return 'other mods use it: ' + ', '.join(other)
+        return 'used', 'other mods use it: ' + ', '.join(other)
     if logic.is_dir() and any(logic.iterdir()):
-        return 'Blueprint mods in Content\\Paks\\LogicMods use it'
+        return 'used', 'Blueprint mods in Content\\Paks\\LogicMods use it'
     return None
 
 
@@ -123,14 +183,24 @@ def _drop_lines(txt, names, gone, left):
 
 
 def _lua_mods(ue4ss, gone, left, all_of_ours):
-    """the app's Lua mods in ue4ss/Mods with their mods.txt lines: in its own UE4SS all of them, in another only those
-    with the record the app kept in each"""
+    """the app's Lua mods in ue4ss/Mods with their mods.txt lines: in the app's own UE4SS all of them, in another only
+    those with the record the app kept in each"""
     mods = ue4ss / 'Mods'
     names = [n for n in LUA if (mods / n).is_dir() and (all_of_ours or (mods / n / MANIFEST).is_file())]
     for n in names:
         _rmtree(mods / n, gone, left)
-    if names:
-        _drop_lines(mods / 'mods.txt', names, gone, left)
+    lines = LUA if all_of_ours else names               # (in its own UE4SS, every line of its mods is its own)
+    if lines:
+        _drop_lines(mods / 'mods.txt', lines, gone, left)
+
+
+def _stamped(stamp):
+    """the app's stamp of the build menu pak it merged: a JSON list, its format (1 to 3) first"""
+    try:
+        s = json.loads(stamp.read_bytes())
+    except (OSError, ValueError):
+        return False
+    return isinstance(s, list) and bool(s) and s[0] in (1, 2, 3)
 
 
 def remove(game_folder):
@@ -140,25 +210,29 @@ def remove(game_folder):
     ue4ss = win / 'ue4ss'
     mods = sim / 'Content' / 'Paks' / '~mods'
     gone, left = [], []
-    if (ue4ss / MARKER).is_file():
-        why = _foreign(ue4ss, sim / 'Content' / 'Paks' / 'LogicMods')
-        if why is None:                                  # all of it is the app's: UE4SS goes, its mods with it
+    if _is_link(ue4ss):
+        log.info('old Mod Library: ue4ss is a link: left alone')
+    elif (ue4ss / MARKER).is_file():
+        f = _foreign(ue4ss, sim / 'Content' / 'Paks' / 'LogicMods')
+        if f is None:                                    # all of it is the app's: UE4SS goes, its mods with it
             _unlink([win / 'dwmapi.dll'], gone, left)    # (first: without it the game doesn't load UE4SS)
             if not left:
                 _rmtree(ue4ss, gone, left, last=MARKER)
-        else:                                            # it stays, as the player's now: only the app's mods go
-            log.info('old Mod Library: UE4SS stays (%s); its own mods are removed', why)
-            _lua_mods(ue4ss, gone, left, True)
+        else:                                            # it stays, the player's now: only the app's mods go
+            log.info('old Mod Library: UE4SS stays (%s); its own mods are removed', f[1])
+            _lua_mods(ue4ss, gone, left, f[0] == 'used')
             if not left:
                 _unlink([ue4ss / MARKER], gone, left)
     elif (ue4ss / 'Mods').is_dir():                      # the player's own UE4SS, or Z's
         _lua_mods(ue4ss, gone, left, False)
-    for stem, versions in PAKS.items():                  # its packs: only a version it shipped (a .pak.off the Asset
-        utoc = mods / (stem + '.utoc')                   # Pack Combiner turned off is the combiner's to delete)
-        if utoc.is_file() and _sha(utoc) in versions:
+    for stem, versions in PAKS.items():                  # its packs: only a version it shipped; one the Asset Pack
+        if (mods / (stem + '.pak.off')).exists():        # Combiner turned off is the combiner's to delete
+            continue
+        utoc = mods / (stem + '.utoc')
+        if utoc.is_file() and not _is_link(utoc) and _sha(utoc) in versions:
             _unlink([mods / (stem + e) for e in PAK_EXTS], gone, left)
-    _unlink([mods / (STOCK + e) for e in PAK_EXTS], gone, left)
-    _unlink([mods / STAMP], gone, left)
+    if not (mods / (STOCK + '.pak.off')).exists() and _stamped(mods / STAMP):     # (the stamp last)
+        _unlink([mods / (STOCK + e) for e in PAK_EXTS] + [mods / STAMP], gone, left)
     for p in gone:
         log.info('old Mod Library: removed %s', p)
     for p in left:

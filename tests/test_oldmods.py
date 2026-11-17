@@ -128,13 +128,63 @@ with tempfile.TemporaryDirectory() as tmp:
     assert (sim / 'Binaries' / 'Win64' / 'ue4ss' / 'UE4SS.dll').is_file()
     assert not (sim / 'Binaries' / 'Win64' / 'ue4ss' / 'Mods' / 'OofsCheatMenu').exists()
 
-    # a pack the Asset Pack Combiner turned off: its .pak.off is the combiner's to delete
+    # a pack and the merged pak the Asset Pack Combiner turned off (.pak.off) are the combiner's to delete, all of them;
+    # a merged pak without the app's stamp isn't provably the app's
     root = Path(tmp) / 'f'
     sim = game(root)
     mods = sim / 'Content' / 'Paks' / '~mods'
-    (mods / 'ZZZ_DoppelmayrR2Six_P.pak').rename(mods / 'ZZZ_DoppelmayrR2Six_P.pak.off')
+    for stem in ('ZZZ_DoppelmayrR2Six_P', 'ZZZ_LiftStock_9_P'):
+        (mods / (stem + '.pak')).rename(mods / (stem + '.pak.off'))
     assert oldmods.remove(root)
-    assert (mods / 'ZZZ_DoppelmayrR2Six_P.pak.off').is_file() and not (mods / 'ZZZ_DoppelmayrR2Six_P.utoc').exists()
+    for stem in ('ZZZ_DoppelmayrR2Six_P', 'ZZZ_LiftStock_9_P'):
+        assert all((mods / (stem + e)).is_file() for e in ('.pak.off', '.ucas', '.utoc')), stem
+    assert (mods / 'skieo_lift_stock.json').is_file()
+    root = Path(tmp) / 'f2'
+    sim = game(root)
+    mods = sim / 'Content' / 'Paks' / '~mods'
+    (mods / 'skieo_lift_stock.json').unlink()
+    assert oldmods.remove(root)
+    assert all((mods / ('ZZZ_LiftStock_9_P' + e)).is_file() for e in oldmods.PAK_EXTS), 'no stamp: left alone'
+
+    # Z's Mod Loader took the app's UE4SS over: a copy of an Oof mod without the app's record in it stays
+    root = Path(tmp) / 'z2'
+    sim = game(root, ue4ss='zs')
+    u = sim / 'Binaries' / 'Win64' / 'ue4ss'
+    (u / 'Mods' / 'OofsAnarchy' / oldmods.MANIFEST).unlink()
+    assert oldmods.remove(root)
+    assert not (u / 'Mods' / 'OofsCheatMenu').exists() and (u / 'Mods' / 'OofsAnarchy' / 'Scripts' / 'main.lua').is_file()
+
+    # the app's UE4SS set up to load mods from other folders too: it stays, the app's mods go
+    root = Path(tmp) / 'h'
+    sim = game(root)
+    u = sim / 'Binaries' / 'Win64' / 'ue4ss'
+    put(u / 'UE4SS-settings.ini', b'[Overrides]\r\n+ModsFolderPaths = ../../../../mods\r\n')
+    assert oldmods.remove(root)
+    assert (u / 'UE4SS.dll').is_file() and (sim / 'Binaries' / 'Win64' / 'dwmapi.dll').is_file()
+    assert not (u / 'Mods' / 'OofsCheatMenu').exists() and not (u / oldmods.MARKER).exists()
+
+    # a mod folder that is a junction to a folder outside the game: only the link goes, never what it points at
+    import _winapi
+    root = Path(tmp) / 'j'
+    sim = game(root)
+    u = sim / 'Binaries' / 'Win64' / 'ue4ss'
+    outside = put(Path(tmp) / 'dev' / 'OofsCheatMenu' / 'Scripts' / 'main.lua', b'the modder\'s own copy')
+    import shutil as _sh
+    _sh.rmtree(u / 'Mods' / 'OofsCheatMenu')
+    _winapi.CreateJunction(str(outside.parent.parent), str(u / 'Mods' / 'OofsCheatMenu'))
+    assert oldmods.remove(root)
+    assert outside.read_bytes() == b'the modder\'s own copy', 'the junction\'s target untouched'
+    assert not u.exists()
+
+    # a read-only file still goes
+    root = Path(tmp) / 'r'
+    sim = game(root)
+    import os as _os, stat as _st
+    _os.chmod(sim / 'Binaries' / 'Win64' / 'ue4ss' / 'UE4SS.log', _st.S_IREAD)
+    _os.chmod(sim / 'Content' / 'Paks' / '~mods' / 'ZZZ_LiftStock_9_P.pak', _st.S_IREAD)
+    assert oldmods.remove(root)
+    assert not (sim / 'Binaries' / 'Win64' / 'ue4ss').exists()
+    assert not (sim / 'Content' / 'Paks' / '~mods' / 'ZZZ_LiftStock_9_P.pak').exists()
 
     # a file that won't go (in use): tried again later, the marker stays till the rest of UE4SS is gone
     root = Path(tmp) / 'g'

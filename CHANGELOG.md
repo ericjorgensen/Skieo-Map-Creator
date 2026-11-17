@@ -11,7 +11,7 @@ Maps made with an older version show **Rebuild recommended** in My Maps: one cli
   Mod Loader can install (its installer won't install over that UE4SS): its UE4SS (unless other mods use it, and
   never one Z's Mod Loader has taken over), its mods, its lift and building packs and its merged build menu. Maps and
   the map list stay. A resort with the R2 lifts or Alpine Buildings needs them from Z's Mod Loader to load with them.
-- **A smaller download**: about 150 MB less, without the packs and UE4SS inside.
+- **A smaller download**: 36 MB instead of 176, without the packs and UE4SS inside.
 
 ## v1.8.2
 - **Big maps run like the game's own.** The game draws every tree, with its shadow and its sway in the wind, on

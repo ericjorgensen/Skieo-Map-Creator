@@ -95,9 +95,9 @@ def atomic_write(path, data):
         raise
 
 
-# work folders the app makes inside the game's folder (hard links to its containers need the same drive; .skilift_:
-# the Mod Library of 1.8 and older)
-WORK_PREFIXES = ('.skilift_', '.skimap_', '.skieo_creator_')
+# work folders the app makes inside the game's folder (hard links to its containers need the same drive; .skilift_ and
+# .skipkg_: the Mod Library and its packaging script of 1.8 and older, still swept)
+WORK_PREFIXES = ('.skilift_', '.skipkg_', '.skimap_', '.skieo_creator_')
 
 
 def remove_tree(path, wait=10.0):
