@@ -1,5 +1,5 @@
-"""Fix the map frame of a donor map (Mad River Glen) when it carries a Sugar-Bowl-scaled terrain:
-  * landscape root transform (location / scale) -> Sugar Bowl values
+"""Fit the template map's frame to the map's terrain:
+  * landscape root transform (location / scale) -> the map's frame (frame.py)
   * skirt mesh (procedural slab walls): rescale x,y to the new extent, top vertices follow the new edge heights
 """
 import logging

@@ -1,5 +1,5 @@
 """Self-check of the forest (skieo_creator/trees.py, ecology.py) on a made-up mountain: no game, no downloads
-(the species patterns come from data/tree_patterns.json).
+(the species patterns come from data/tree_patterns.json, density and tree scales from data/forest_stats.json).
 usage: python tests/test_trees.py"""
 import struct
 import sys
@@ -12,7 +12,6 @@ from skieo_creator import trees  # noqa: E402
 
 G, SP, HMIN, TOP = trees.G, 5.0, 400.0, 1250.0
 SC = 1000.0 / 65535
-rng = np.random.default_rng(3)
 
 # a 10 km map: a mountain in the middle (1,250 m) over rolling ground with valleys (400-650 m)
 yy, xx = np.mgrid[0:G, 0:G] * SP
@@ -20,18 +19,6 @@ r = np.hypot(xx - 5000, yy - 5000)
 E = HMIN + 120 + 100 * np.sin(xx / 900.0) * np.cos(yy / 1300.0) + 730 * np.exp(-(r / 1900.0) ** 2)
 H = (np.rint((E - HMIN) / SC) - 32768).astype(np.int64)
 
-# a donor forest: 20,000 trees on 1 km2 (the stock density), every size and condition of the game's tables
-ents = [('DA_TreeSpecies_Spruce', s, c, 'SM_Spruce_%d_%d' % (s, c)) for s in range(4) for c in (0, 1, 2)] + \
-       [('DA_TreeSpecies_Spruce', 0, 3, 'SM_Spruce_krummholz')]
-n = 20000
-kind = rng.choice(len(ents), n, p=np.r_[[0.08] * 12, [0.04]] / np.sum(np.r_[[0.08] * 12, [0.04]]))
-rec = np.zeros((n, trees.STRIDE), np.uint8)
-rec[:, 0:4] = (rng.uniform(0, 1000, n) * 1000).astype('<i4').view(np.uint8).reshape(-1, 4)
-rec[:, 4:8] = (rng.uniform(0, 1000, n) * 1000).astype('<i4').view(np.uint8).reshape(-1, 4)
-rec[:, 8:12] = (rng.uniform(0, 600, n) * 1000).astype('<i4').view(np.uint8).reshape(-1, 4)
-rec[:, 12:18] = rng.integers(0, 256, (n, 6))
-rec[:, 18:20] = kind.astype('<u2').view(np.uint8).reshape(-1, 2)
-donor = dict(hdr=bytes(32), table=trees.encode_table(ents), records=rec.tobytes())
 names = ['Spruce', 'Fir', 'Maple', 'Birch', 'Oak']
 variants = {s: [(z, c, 'SM_%s_%d_%d' % (s, z, c)) for z in range(4) for c in ((0, 1, 2) if s in ('Spruce', 'Fir')
                                                                               else (0, 2))] for s in names}
@@ -42,8 +29,7 @@ for s in ('Spruce', 'Fir'):                                          # like the 
 
 
 def plant(seed, **kw):
-    return trees.forest(H, HMIN, SP, SC, 'Northeast', TOP, 0.0, {'mrg': donor, 'sb': donor}, variants, names, seed,
-                        max_trees=400000, lat=44.0, **kw)
+    return trees.forest(H, HMIN, SP, SC, 'Northeast', TOP, 0.0, variants, names, seed, max_trees=400000, lat=44.0, **kw)
 
 
 def positions(recs):
@@ -51,8 +37,15 @@ def positions(recs):
     return r[:, 0:4].copy().view('<i4').ravel() / 1000.0, r[:, 4:8].copy().view('<i4').ravel() / 1000.0
 
 
-recs, table, _, counts = plant(11)
+recs, table, tail, counts = plant(11)
 out = np.frombuffer(recs, np.uint8).reshape(-1, trees.STRIDE)
+# the Northeast look (forest_stats.json, the game's Mad River Glen trees): its scale range, width = height, scales
+# like the game's trees there (mean 0.72 of the range); yaw any way round
+assert tail == trees.header_tail('mrg') and struct.unpack('<4f', tail)[2:] == tuple(
+    struct.unpack('<2f', struct.pack('<2f', *trees.stats()['looks']['mrg']['header'][2:])))
+w, h = out[:, 14:16].copy().view('<u2').ravel(), out[:, 16:18].copy().view('<u2').ravel()
+yaw = out[:, 12:14].copy().view('<u2').ravel()
+assert (w == h).all() and 0.65 < w.mean() / 65535 < 0.8 and 0.45 < yaw.mean() / 65535 < 0.55, (w.mean(), yaw.mean())
 x = out[:, 0:4].copy().view('<i4').ravel() / 1000.0
 y = out[:, 4:8].copy().view('<i4').ravel() / 1000.0
 z = out[:, 8:12].copy().view('<i4').ravel() / 1000.0 + HMIN

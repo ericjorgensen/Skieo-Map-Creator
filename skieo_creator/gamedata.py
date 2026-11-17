@@ -1,12 +1,14 @@
-"""The stock assets a generated map is built from, read out of the player's own game install with retoc.
+"""What the Map Creator reads out of the player's own game with retoc -- no game map is copied or shipped.
 
-Nothing from the game is shipped with the creator: on first start (and after every game update) it converts these
-from the game's IoStore containers to legacy assets and checks that their formats are what the builder expects.
-  * Map_mad_river_glen_real (umap / uexp / ubulk)  the donor map every generated map is a re-terrained copy of
-  * DA_BakedObstacles of Mad River Glen and Sugar Bowl  forest templates (density, tree sizes, species tables)
-  * DA_MapPreview, H_mad_river_glen_Out          map preview and terrain height texture templates
-  * IS_Map_sugar_bowl(_real)_tutorial            starting save template
-  * DA_TreeSpecies_*, DA_BiomeSettings_*         tree variants per species, species per biome
+Maps are built from the Map Creator's own template (data/map_template.zip, made from scratch in the mod kit:
+mod-loader-upload/kit/maptemplate.py). From the game, on first start and after every game update, it converts these from
+the game's IoStore containers to legacy assets and checks them:
+  * the stock map Map_mad_river_glen_real (umap / uexp): its compiled terrain material (the one thing a map has that
+    cannot be made from scratch; builder.terrain_material), and its layout, which must still be the one the template
+    was made for (engine/stockcheck.py; after a game update that changed it, a Map Creator update is needed)
+  * the game assets the template refers to (terrain, rock and snow materials, weather parameters, game mode, shared
+    level): that they are still there
+  * DA_TreeSpecies_*, DA_BiomeSettings_*: tree variants per species, species per biome
 """
 import hashlib
 import json
@@ -16,27 +18,42 @@ import shutil
 import struct
 import subprocess
 import tempfile
+import zipfile
 from pathlib import Path
 
 from . import paths, trees
 from .engine import legacy_header as lh
+from .engine import stockcheck
 
 log = logging.getLogger(__name__)
 C = 'SkiResortSimulator/Content/'
-DONOR_MAP = 'Map_mad_river_glen_real'
-FILTERS = ['Maps/Generated/Map_mad_river_glen_real', 'DA_BakedObstacles_Map_mad_river_glen_real',
-           'DA_BakedObstacles_Map_sugar_bowl_real.', 'DA_MapPreview_Map_mad_river_glen_real', 'H_mad_river_glen_Out',
-           'IS_Map_sugar_bowl_real_tutorial', 'IS_Map_sugar_bowl_tutorial', 'DA_TreeSpecies_', 'DA_BiomeSettings_',
-           'Materials/Snow/M_Snow.']
-REQUIRED = [C + 'Maps/Generated/%s.%s' % (DONOR_MAP, e) for e in ('umap', 'uexp', 'ubulk')] + [
-    C + 'Generated/DA_BakedObstacles_%s.%s' % (DONOR_MAP, e) for e in ('uasset', 'uexp')] + [
-    C + 'Generated/DA_BakedObstacles_Map_sugar_bowl_real.%s' % e for e in ('uasset', 'uexp')] + [
-    C + 'Generated/DA_MapPreview_%s.%s' % (DONOR_MAP, e) for e in ('uasset', 'uexp')] + [
-    C + 'Materials/Terrain/Generated/mad_river_glen/H_mad_river_glen_Out.%s' % e for e in ('uasset', 'uexp')] + [
-    C + 'InitialSaves/IS_Map_sugar_bowl_real_tutorial.uexp', C + 'InitialSaves/IS_Map_sugar_bowl_tutorial.uasset',
+TEMPLATE_SLUG = 'maptemplate000'
+STOCK_MAP = 'Map_mad_river_glen_real'
+# the game assets the template refers to: /Game/<path>.<extension>
+GAME_ASSETS = ['Materials/Terrain/M_Terrain.uasset', 'Materials/Terrain/M_StriatedRock.uasset',
+               'Materials/Snow/M_Snow.uasset', 'Materials/MPC_Weather.uasset', 'Core/BP_SkiResortGameMode.uasset',
+               'Maps/Map_Shared.umap', 'Data/DA_BiomeSettings_Northeast.uasset']
+FILTERS = ['Maps/Generated/%s.' % STOCK_MAP, 'DA_TreeSpecies_', 'DA_BiomeSettings_'] + [
+    a.rsplit('.', 1)[0] + '.' for a in GAME_ASSETS if not a.startswith('Data/DA_BiomeSettings_')]
+REQUIRED = [C + 'Maps/Generated/%s.%s' % (STOCK_MAP, e) for e in ('umap', 'uexp')] + [C + a for a in GAME_ASSETS] + [
     'scriptobjects.bin']
-FORMAT = 2                                   # bump when the cached layout or the checks change
+FORMAT = 3                                   # bump when the cached layout or the checks change
 NO_WINDOW = 0x08000000 if os.name == 'nt' else 0
+_template = None
+
+
+def template_file(name):
+    """a file of the map template (data/map_template.zip)"""
+    with zipfile.ZipFile(paths.resource('data', 'map_template.zip')) as z:
+        return z.read(name)
+
+
+def template():
+    """the map template's template.json: its names, tile layout and the stock map's fingerprint it was made for"""
+    global _template
+    if _template is None:
+        _template = json.loads(template_file('template.json'))
+    return _template
 
 
 class GameDataError(Exception):
@@ -91,7 +108,8 @@ def _base_inputs(game_folder, work):
 
 
 class GameData:
-    """Extracted + validated donor assets for one game version, cached in %LOCALAPPDATA%/SkiEO Map Creator/gamedata."""
+    """The game files the Map Creator reads (see the top), extracted and checked once per game version, cached in
+    %LOCALAPPDATA%/SkiEO Map Creator/gamedata."""
 
     def __init__(self, game_folder):
         self.game_folder = Path(game_folder)
@@ -150,18 +168,22 @@ class GameData:
     # ------------------------------------------------------------ checks
 
     def _validate(self, root):
-        """dry-run every format assumption of the builder on the donor files, so a changed game fails here with a
-        clear message instead of producing a broken map"""
+        """the game's map layout against the one the template was made for, then a dry run of every writer of the
+        builder, so a changed game fails here with a clear message instead of producing a broken map"""
         from . import builder
+        g = root / C
+        umap = (g / 'Maps/Generated' / (STOCK_MAP + '.umap')).read_bytes()
+        uexp = (g / 'Maps/Generated' / (STOCK_MAP + '.uexp')).read_bytes()
         try:
-            g = root / C
-            umap = (g / 'Maps/Generated' / (DONOR_MAP + '.umap')).read_bytes()
-            uexp = (g / 'Maps/Generated' / (DONOR_MAP + '.uexp')).read_bytes()
-            builder.check_donor(umap, uexp)
-            mrg = trees.read_skob((g / 'Generated' / ('DA_BakedObstacles_%s.uexp' % DONOR_MAP)).read_bytes())
-            sbw = trees.read_skob((g / 'Generated/DA_BakedObstacles_Map_sugar_bowl_real.uexp').read_bytes())
-            trees.table_entries(mrg['table'])
-            trees.table_entries(sbw['table'])
+            diff = stockcheck.differences(template()['stock_fingerprint'], stockcheck.fingerprint(umap, uexp))
+        except (AssertionError, ValueError, KeyError, IndexError, struct.error) as e:     # a map it can't even read
+            diff = ['%s: %s' % (type(e).__name__, e)]
+        if diff:
+            log.error('the game\'s map layout differs from the template\'s: %s', '; '.join(diff))
+            raise GameDataError('This version of Ski-E-O lays its maps out differently from the version the Map '
+                                'Creator was made for, so it can\'t build maps for it yet. Check for a Map Creator update. '
+                                '(%s)' % '; '.join(diff[:3]))
+        try:
             species = {}
             for p in sorted((g / 'Data/Trees').glob('DA_TreeSpecies_*.uasset')):
                 species[p.stem.replace('DA_TreeSpecies_', '')] = trees.species_variants(p.read_bytes(), p.with_suffix('.uexp').read_bytes())
@@ -205,22 +227,22 @@ class GameData:
 
     @staticmethod
     def _files(root):
+        """the template's files (data/map_template.zip) and, from the game, the stock map (its terrain material) and
+        scriptobjects.bin"""
         g = Path(root) / C
-
-        def rd(rel):
-            return (g / rel).read_bytes()
-        return dict(
-            umap=rd('Maps/Generated/%s.umap' % DONOR_MAP), uexp=rd('Maps/Generated/%s.uexp' % DONOR_MAP),
-            ubulk=rd('Maps/Generated/%s.ubulk' % DONOR_MAP),
-            obs_ua=rd('Generated/DA_BakedObstacles_%s.uasset' % DONOR_MAP),
-            obs_ue=rd('Generated/DA_BakedObstacles_%s.uexp' % DONOR_MAP),
-            sb_obs_ue=rd('Generated/DA_BakedObstacles_Map_sugar_bowl_real.uexp'),
-            pv_ua=rd('Generated/DA_MapPreview_%s.uasset' % DONOR_MAP), pv_ue=rd('Generated/DA_MapPreview_%s.uexp' % DONOR_MAP),
-            htx_ua=rd('Materials/Terrain/Generated/mad_river_glen/H_mad_river_glen_Out.uasset'),
-            htx_ue=rd('Materials/Terrain/Generated/mad_river_glen/H_mad_river_glen_Out.uexp'),
-            is_ue=rd('InitialSaves/IS_Map_sugar_bowl_real_tutorial.uexp'),
-            is_ua=rd('InitialSaves/IS_Map_sugar_bowl_tutorial.uasset'),
-            scriptobjects=(Path(root) / 'scriptobjects.bin').read_bytes())
+        s, m = TEMPLATE_SLUG, 'Map_%s_real' % TEMPLATE_SLUG
+        with zipfile.ZipFile(paths.resource('data', 'map_template.zip')) as z:
+            rd = z.read
+            files = dict(
+                umap=rd(m + '.umap'), uexp=rd(m + '.uexp'), ubulk=rd(m + '.ubulk'), layout=template()['layout'],
+                guids=template()['guids'],
+                obs_ua=rd('DA_BakedObstacles_%s.uasset' % m), obs_ue=rd('DA_BakedObstacles_%s.uexp' % m),
+                pv_ua=rd('DA_MapPreview_%s.uasset' % m), pv_ue=rd('DA_MapPreview_%s.uexp' % m),
+                htx_ua=rd('H_%s_Out.uasset' % s), htx_ue=rd('H_%s_Out.uexp' % s),
+                is_ua=rd('IS_Map_%s_tuto.uasset' % s), is_ue=rd('IS_Map_%s_tuto.uexp' % s))
+        return dict(files, stock_umap=(g / 'Maps/Generated' / (STOCK_MAP + '.umap')).read_bytes(),
+                    stock_uexp=(g / 'Maps/Generated' / (STOCK_MAP + '.uexp')).read_bytes(),
+                    scriptobjects=(Path(root) / 'scriptobjects.bin').read_bytes())
 
     def files(self):
         return self._files(self.dir)

@@ -8,9 +8,16 @@ For players, see the [README](../README.md).
 1. **Elevation**: USGS 3DEP 1/3 arc-second (~10 m) inside the US, AWS Terrain Tiles (~30 m) elsewhere
    (`dem.py`). It is resampled onto the game's 2017 x 2017 landscape grid on a local transverse Mercator projection
    (`geo.py`).
-2. **Game data**: `gamedata.py` uses retoc to extract a donor map (Mad River Glen) and a few assets from the
-   player's game into a cache, and dry-runs every writer on them before the first build.
-3. **Build** (`builder.py`): the donor map is copied, and these parts are rewritten:
+2. **The template and the game's data**: every map is the Map Creator's own template (`data/map_template.zip`), made from
+   scratch in the mod kit and laid out like the game's own maps: a level (landscape of 32 x 32 components, the
+   environment settings, 64 snow shell pieces, the edge wall, the game mode and the shared level), a forest, map
+   preview, height texture and starting save asset, each of the game's own classes holding only our values (see
+   "The map template" below). `gamedata.py` reads from the player's game, with retoc, into a cache: the stock map
+   Mad River Glen for one thing only, the compiled terrain material that every game map carries (made from the
+   material's node graph, which only the game's developer has); and that map's layout, which must still be the one the
+   template was made for (`engine/stockcheck.py`), plus the tree species and biomes. It dry-runs every writer before
+   the first build. Nothing of the game's ships with the Map Creator, and no game map is copied.
+3. **Build** (`builder.py`): the template is filled in:
    - **Heights and scale:** landscape heights and all their mip levels (made the way Unreal makes them), edge-normal
      rings and grid scale (`engine/terrain_write.py`, `engine/provider_write.py`); component bounds and collision;
      the map frame (size, height scale); and the edge wall, whose edge the terrain is fitted to (`engine/map_frame.py`).
@@ -23,12 +30,19 @@ For players, see the [README](../README.md).
      experimental mode) thins out, least around the lifts and trails, the trees it keeps a size larger where that
      keeps the ground covered (`data/tree_meshes.json`: the meshes of each kind of tree, see below).
    - **Snow piles:** written from a cooked template mesh (`shells.py`, `data/shell_template.*`).
-   - **Everything else:** terrain material overrides (`engine/material_params.py`), the height texture, the map
-     preview, the starting save (ticket office on the base area), and the map list entry. Every renamed string keeps
-     its length.
+   - **Terrain material:** a package of the map's own (`MI_<slug>_Terrain`) holding the game's compiled terrain
+     material instance, taken from the stock map in the player's game with the package around it made new
+     (`engine/terrain_material.py`: the stock map's name and import tables kept, so the material's data is used as
+     it is), with the Map Creator's settings (`engine/material_params.py`).
+   - **Everything else:** the height texture, the map preview (with the map's terrain generation), the preview camera
+     (`builder.preview_pose`: where the game's own maps put theirs), and the map list entry. Every renamed string
+     keeps its length. A map starts empty, like the game's own maps (none of them has a starting save but the
+     tutorial map).
    - **Real trails and lifts** (optional, `resort.py`): the ski area's OpenStreetMap lifts and pistes become the
-     game's own lift and trail records in the starting save (read and written with `engine/gvas_tree.py`, record
-     layouts from `data/resort_templates.bin`), each run's curves as wide as its real cut through the forest in the
+     game's own lift and trail records in a starting save written from scratch (`startsave.py`: the ticket office
+     on the base area, its hub, the trail map's bounds; read and written with `engine/gvas_tree.py`, record layouts
+     from `data/save_template.bin` and `data/resort_templates.bin`, blank records of the game's save format; weather,
+     snow, staff, money and the date are left to the game), each run's curves as wide as its real cut through the forest in the
      satellite canopy heights (`resort._cuts`), the forest leaves their corridors clear, and the map list entry's
      `InitialSave` makes New Game start from that save. Glades are left out: the ones OSM marks, and runs under tree
      canopy with no cleared corridor in the satellite canopy heights (`canopy.py`). A run drawn twice in OSM is built
@@ -65,9 +79,39 @@ packaging\build.bat
 
 This makes `dist\SkiEO-Map-Creator.exe`, a single file that bundles `web/`, `data/` and `tools/retoc.exe`.
 
+## The map template
+
+`data/map_template.zip` is the map every build fills in: a level, forest, map preview, height texture and starting
+save asset, made from scratch in the mod kit (`D:\SkiModKit`, the Unreal editor project our asset packs are made in)
+by `mod-loader-upload/kit/maptemplate.py`. Its editor script (`SkiModKit/Scripts/kit/build_map_template.py`, with
+`MapKit` in the kit's editor module) makes a new level without World Partition and puts in it what the game's own
+maps have, from the game's classes in the kit's stub of the game's module: a landscape of 32 x 32 components of 63
+quads (heights from a tilted plane, so every component has a height range of its own), the environment settings, 64
+snow shell pieces, the edge wall, the game mode, and the shared level always loaded. Stand-ins take the place of the
+game's assets the level refers to (the terrain, rock and snow materials, the game mode, the shared level, the snow
+meshes) and are never cooked: the level only names them. The landscape's material instances point at a stand-in for
+the terrain material package each map gets from the player's game.
+
+`maptemplate.py` cooks only the template's packages, converts them to the 5.7 layout retoc reads, checks retoc takes
+them (to-zen and back), and checks the template against the game's own map (same classes, properties and export
+sizes) and against every writer of the Map Creator. It records the stock map's layout (`engine/stockcheck.py`), which
+`gamedata.py` compares with the player's game, and the template's landscape and heightfield GUIDs, which every map
+gets its own of (`builder.map_guids`: the engine shares terrain collision between components of the same
+HeightfieldGuid). Make the template again after a game update that changes the map classes (the Map
+Creator then says it needs an update) or the engine:
+
+```
+python <mod-loader-upload>\kit\stubgen.py <UHT header dump>\SkiResortSimulator D:\SkiModKit\SkiResortSimulator\Source\SkiResortSimulator
+python <mod-loader-upload>\kit\build.py --cpp
+python <mod-loader-upload>\kit\maptemplate.py
+```
+
+(`build.py --cpp` rebuilds the kit's C++ and the asset packs; see `mod-loader-upload/kit/README.md`.)
+
 ## Data learned from the game
 
-`data/tree_patterns.json` holds how each biome's tree species are spread over the game's own maps. To make it again
+`data/tree_patterns.json` holds how each biome's tree species are spread over the game's own maps (measured once,
+offline; the Map Creator reads no game forest when it builds a map). To make it again
 (after a game update that changes the maps' forests), extract the maps' forests and height textures, then run the
 learner on them:
 
@@ -85,19 +129,39 @@ tools\retoc.exe to-legacy --no-shaders -f Meshes/Mountain/ -f DA_TreeSpecies_ <g
 python packaging/make_tree_meshes.py <out>\SkiResortSimulator\Content
 ```
 
+`data/forest_stats.json` holds what the game's own forests are like, so the Map Creator plants its own without reading
+them: trees per m2, and per look (`biomes.py`: Mad River Glen's trees or Sugar Bowl's) the trees' scale range and
+their scales by height and size. To make it again:
+
+```
+tools\retoc.exe to-legacy --no-shaders -f DA_BakedObstacles_Map_mad_river_glen_real. -f DA_BakedObstacles_Map_sugar_bowl_real. <game>\SkiResortSimulator\Content\Paks <out>
+python packaging/make_forest_stats.py <out>\SkiResortSimulator\Content
+```
+
+`data/save_template.bin` holds blank records of the game's save format (the ticket office, its hub, the trail map,
+cleared ground) that a starting save is written from (`startsave.py`), and `save_template.json` the game's save
+version. Make it again after a game update that changes the save format, from any save of the new version with a
+ticket office, and the game's own starting save asset for the version numbers:
+
+```
+tools\retoc.exe to-legacy --no-shaders -f InitialSaves/ <game>\SkiResortSimulator\Content\Paks <out>
+python packaging/make_save_template.py <a .sav with a ticket office> <out>\SkiResortSimulator\Content\InitialSaves\IS_Map_sugar_bowl_real_tutorial.uexp
+```
+
 ## Layout
 
 | Path | What |
 |---|---|
 | `skieo_creator/` | app: `main.py` (window), `api.py` (calls from the page), `builder.py`, `trees.py`, `shells.py`, `dem.py`, `install.py`, `oldmods.py`, `update.py` ... |
-| `skieo_creator/engine/` | writers for the cooked map data (heightmaps, providers, bounds, collision, frame, headers, materials) |
+| `skieo_creator/engine/` | writers for the cooked map data (heightmaps, providers, bounds, collision, frame, headers, materials), the terrain material package (`terrain_material.py`), the check of the game's map layout (`stockcheck.py`) |
 | `web/` | the UI (HTML / CSS / JS) and vendored Leaflet + three.js |
-| `data/` | the cooked snow-shell template; `resort_templates.bin`, blank lift / trail save records (from `packaging/make_resort_templates.py`); the tree meshes and patterns |
+| `data/` | `map_template.zip`, the map template (see above); the cooked snow-shell template; `save_template.bin` and `resort_templates.bin`, blank save records (from `packaging/make_save_template.py` and `make_resort_templates.py`); the tree meshes, patterns and forest statistics |
 | `tools/` | retoc.exe (MIT, https://github.com/trumank/retoc) and its license, both shipped in the exe. Nothing else goes here: `verify_exe.py` fails the release build on any file in `tools/`, `web/` or `data/` the exe doesn't ship |
 | `packaging/` | PyInstaller spec, build script, icon, version info, credits (`THIRD-PARTY.txt`), `verify_exe.py`; developer scripts the exe doesn't ship, such as `make_tree_patterns.py` and `make_tree_meshes.py` |
 | `docs/` | this file and the README's screenshots |
 | `tests/ui_drive.py` | scripted UI sessions with screenshots (`search`, `3d`, `3d-offline`, `numbox`, `osm`, ...) |
 | `tests/test_resort.py` | self-check of the trail and lift import rules on made-up data |
+| `tests/test_trees.py` | self-check of the forest on a made-up mountain (no game, no downloads) |
 | `tests/test_dem.py` | self-check of reading where the USGS elevation image really is (its GeoTIFF tags) |
 | `tests/test_update.py` | self-check of the self-update (release lookup, checksums, swapping the exe) without the network |
 | `tests/test_install.py` | self-check of the map list entries (never a tutorial map, the once-only rebuild of older ones) |

@@ -28,8 +28,9 @@ log = logging.getLogger(__name__)
 APP_ID = '4493130'          # Ski-E-O! Ski Resort Tycoon
 DEMO_APP_ID = '5012760'     # not supported: the demo's game files are encrypted since its November update
 FORMAT = 1
-FORMATS = (1, 2, 3)    # 2 = the package adds a new map entry ('append'), which installers before 2 can't do;
-                       # 3 = entries are found by map key (registry layout of game build 25996759 and later)
+FORMATS = (1, 2, 3, 4)  # 2 = the package adds a new map entry ('append'), which installers before 2 can't do;
+                        # 3 = entries are found by map key (registry layout of game build 25996759 and later);
+                        # 4 = the entry may name no starting save (1.10: maps start empty like the game's own)
 REGISTRY_PAK = 'ZZZ_Registry_P'
 REGISTRY_VERSION = 2   # what custom_entry() makes of the entries; 2 (1.7.5): never a tutorial map
 STATE_NAME = 'skimap_installer.json'
@@ -560,17 +561,20 @@ def apply_entry(ua, ue, spec):
     ua2, _, names = lh.edit(ua, add=[n for n in dict.fromkeys(spec['add_names']) if n not in have])
     ix = names.index
     n_imp = lh.parse(ua2)[0]['imports_count'][1]
-    isv = spec['initial_save']
+    isv = spec.get('initial_save') or {}               # (none: a map without a starting save, as the game's own)
+    is_ref = None
     if 'package' in isv:
         obj_imp = (ix('/Script/SkiResortSimulator'), 0, ix('InitialSaveAsset'), 0, -(n_imp + 2), ix(isv['object']), 0, 0)
         pkg_imp = (ix('/Script/CoreUObject'), 0, ix('Package'), 0, 0, ix(isv['package']), 0, 0)
         ua3, first = lh.add_imports(ua2, [obj_imp, pkg_imp])
         assert first == n_imp
         is_ref = struct.pack('<i', -(n_imp + 1))
-    else:
+    elif 'copy' in isv:
         ua3 = ua2
         _, other, _ = le.slices(ue, entry_at(ue, isv['copy'][0]))
         is_ref = other[isv['copy'][1]]
+    else:
+        ua3 = ua2
     if 'append' in spec:
         if bytes(ue).find(fstr(dict((i[0], i[2]) for i in spec['set'] if i[1] == 'text')['DisplayName'])) > 0:
             raise InstallError('The map list already has an entry with this name.')
@@ -583,6 +587,8 @@ def apply_entry(ua, ue, spec):
         if kind == 'ref':
             ent[field] = struct.pack('<5i', ix(item[2]), 0, ix(item[3]), 0, 0)
         elif kind == 'initial_save':
+            if is_ref is None:
+                raise InstallError('This map package names no starting save.')
             ent[field] = is_ref
         elif kind == 'hex':
             ent[field] = bytes.fromhex(item[2])

@@ -81,7 +81,8 @@ TREE_BUDGET = 1_500_000
 NEAR_M, NEAR_FADE_M = 1000.0, 1000.0
 FAR_SHARE = 0.5
 _meshes = None
-CONIFERS = ('Fir', 'Spruce', 'Pine', 'WhitebarkPine', 'Hemlock', 'Larch', 'Sclerophyll')
+_stats = None
+CONIFERS =('Fir', 'Spruce', 'Pine', 'WhitebarkPine', 'Hemlock', 'Larch', 'Sclerophyll')
 BROADLEAF = ('Aspen', 'Birch', 'Maple', 'Oak', 'MountainBirch', 'SouthernBeech', 'SnowGum')
 
 
@@ -200,17 +201,26 @@ def tree_budget(size_km, count, experimental=False):
     return count if experimental else min(count, TREE_BUDGET)
 
 
-def plant(H, sp, sc, density_records, rng, open_mask, max_trees=DEFAULT_TREES, tree_slope=TREE_SLOPE, weight=None,
-          clear=None):
+def stats():
+    """data/forest_stats.json (packaging/make_forest_stats.py): what the game's own forests are like -- trees per m2,
+    and per look ('mrg' / 'sb', biomes.BIOMES) the trees' scale range and their scales by height band and size"""
+    global _stats
+    if _stats is None:
+        _stats = json.loads(paths.resource('data', 'forest_stats.json').read_text(encoding='utf-8'))
+    return _stats
+
+
+def header_tail(look):
+    """the forest header's last 16 bytes: a look's scale range (4 floats)"""
+    return struct.pack('<4f', *stats()['looks'][look or 'mrg']['header'])
+
+
+def plant(H, sp, sc, rng, open_mask, max_trees=DEFAULT_TREES, tree_slope=TREE_SLOPE, weight=None, clear=None):
     """tree positions (x, y in metres from the landscape corner, z in metres above its bottom) at the stock density,
     thinned evenly when that would give more than max_trees; none on ground steeper than tree_slope (deg);
     weight (0..1 per vertex, optional) thins them further; clear (optional (bool raster, metres per cell), row = y)
     marks ground kept free of trees (trails, lifts)"""
-    rec = np.frombuffer(density_records, np.uint8).reshape(-1, STRIDE)
-    X = rec[:, 0:4].copy().view('<i4').ravel() / 1000.0
-    Y = rec[:, 4:8].copy().view('<i4').ravel() / 1000.0
-    cell = (X // 30).astype(np.int64) * 1000 + (Y // 30).astype(np.int64)
-    dens = np.percentile(np.unique(cell, return_counts=True)[1], 75) / 900.0
+    dens = stats()['density']
     ext = (G - 1) * sp
     # vertices a tree may stand on: gentler than tree_slope, not open ground
     ok = ((_local_max(_slope(H, sp, sc), 1) < tree_slope) & ~open_mask).astype(np.float64)
@@ -411,17 +421,17 @@ def _thin_odds(x, y, cost, budget, clear):
     return np.minimum(1.0, lo * w)
 
 
-def forest(H, hmin, sp, sc, biome, treeline, valley, donors, species, biome_species, seed, max_trees=DEFAULT_TREES,
+def forest(H, hmin, sp, sc, biome, treeline, valley, species, biome_species, seed, max_trees=DEFAULT_TREES,
            tree_slope=TREE_SLOPE, treeline_fade=0.0, clear=None, cover=None, lat=45.0, budget=TREE_BUDGET):
     """-> (record bytes, table bytes, header tail, {species: count})
-    donors: {'mrg': skob, 'sb': skob}; species: {short name: [(size, state, trunk)]}; biome_species: short names;
+    species: {short name: [(size, state, trunk)]}; biome_species: short names;
     max_trees: plant at most this many, evenly; cover: optional share (0..1 per vertex) of the forest density to keep
     (the real tree cover round a resort); lat: the map's latitude (where the sun stands); budget: the most tree
     instances (trees and canopies) to keep, thinning out round the resort (tree_budget; None: all)"""
     rng = np.random.default_rng(seed)
     spec = biomes.BIOMES[biome]
-    hdr_tail = donors['mrg']['hdr'][16:]
-    if not spec['donor'] or not biome_species:
+    hdr_tail = header_tail(spec['look'])
+    if not spec['look'] or not biome_species:
         return b'', encode_table([]), hdr_tail, {}
     mask = open_ground(H, hmin, sp, sc, treeline, valley)
     weight = None
@@ -429,23 +439,14 @@ def forest(H, hmin, sp, sc, biome, treeline, valley, donors, species, biome_spec
         weight = np.clip((treeline - ((H.astype(np.float64) + 32768) * sc + hmin)) / treeline_fade, 0.0, 1.0)
     if cover is not None:
         weight = cover if weight is None else weight * cover
-    x, y, z = plant(H, sp, sc, donors['mrg']['records'], rng, mask, max_trees=max_trees, tree_slope=tree_slope,
-                    weight=weight, clear=clear)
+    x, y, z = plant(H, sp, sc, rng, mask, max_trees=max_trees, tree_slope=tree_slope, weight=weight, clear=clear)
     m = len(x)
-    donor = donors[spec['donor']]
-    hdr_tail = donor['hdr'][16:]
-    d_rec = np.frombuffer(donor['records'], np.uint8).reshape(-1, STRIDE)
-    d_ents = table_entries(donor['table'])
 
     avail = [s for s in biome_species if s in species]
     if not avail:
         return b'', encode_table([]), hdr_tail, {}
 
-    # the donor forest gives each tree its size, condition, yaw and scale, from donor trees of the same relative height
-    d_z = d_rec[:, 8:12].copy().view('<i4').ravel().astype(np.float64)
-    lo, hi = np.percentile(d_z, [1, 99])
-    d_band = np.clip(((d_z - lo) / max(hi - lo, 1.0) * BANDS).astype(int), 0, BANDS - 1)
-    d_kind = d_rec[:, 18:20].copy().view('<u2').ravel()
+    # height bands of this forest: each tree's yaw and scale like the game's trees of the same band and size (below)
     zl, zh = np.percentile(z, [1, 99]) if m else (0.0, 1.0)
     band = np.clip(((z - zl) / max(zh - zl, 1.0) * BANDS).astype(int), 0, BANDS - 1)
     stand = _patches(x, y, rng, STAND_M)
@@ -485,11 +486,10 @@ def forest(H, hmin, sp, sc, biome, treeline, valley, donors, species, biome_spec
         cell_logit = terr[:, ecology.BANDS:] @ coef[ecology.BANDS:] + np.asarray(model['bias'], np.float32)[cols]
         band_logit = coef[:ecology.BANDS]
         size_cond = np.asarray(model['size_cond'], np.float64)[cols]       # (species, band, size * 4 + condition)
-    else:
+    else:                                                  # (every biome with trees has a model; just in case)
         cell_logit, band_logit = np.zeros((len(used), S), np.float32), np.zeros((BANDS, S), np.float32)
-        d_sc = np.zeros((BANDS, 16))                                       # the donor's own sizes and conditions
-        np.add.at(d_sc, (d_band, np.array([e[1] * 4 + e[2] for e in d_ents], np.int64)[d_kind]), 1)
-        size_cond = np.broadcast_to(d_sc / np.maximum(d_sc.sum(1, keepdims=True), 1), (S, BANDS, 16))
+        size_cond = np.zeros((S, BANDS, 16))
+        size_cond[:, :, 0::4] = 0.25                                       # healthy, every size alike
     prob = cell_logit[ci] + band_logit[np.clip(band, 0, BANDS - 1)]
     if m:
         prob -= prob.max(axis=1, keepdims=True)
@@ -567,17 +567,23 @@ def forest(H, hmin, sp, sc, biome, treeline, valley, donors, species, biome_spec
         x, y, rec, pick, size, state, vpick, band = (a[keep] for a in (x, y, rec, pick, size, state, vpick, band))
         m = len(x)
     tgt_sp = np.asarray(names, object)[pick]
-    d_size = np.array([e[1] for e in d_ents], np.int64)[d_kind]
-    for b in range(BANDS):                                 # yaw / width / height of a donor of that height and size
+    # yaw (any way round, as on the game's maps) and scale (width = height) like the game's trees of that height band
+    # and size (forest_stats.json: a histogram of their scales)
+    hist = np.asarray(stats()['looks'][spec['look']]['scale'], np.float64)        # band, size, bin
+    bins = hist.shape[2]
+    rec[:, 12:14] = rng.integers(0, 65536, m, dtype=np.uint16).astype('<u2').view(np.uint8).reshape(-1, 2)
+    for b in range(BANDS):
         in_band = band == b
         for s in range(4):
             sel = np.nonzero(in_band & (size == s))[0]
             if not len(sel):
                 continue
-            pool = np.nonzero((d_band == b) & (d_size == s))[0]
-            if not len(pool):
-                pool = np.nonzero(d_size == s)[0] if (d_size == s).any() else np.arange(len(d_rec))
-            rec[sel, 12:18] = d_rec[rng.choice(pool, len(sel)), 12:18]
+            p = hist[b, s] if hist[b, s].sum() else hist[:, s].sum(axis=0)
+            p = p if p.sum() else np.ones(bins)
+            u = (rng.choice(bins, len(sel), p=p / p.sum()) + rng.random(len(sel))) * (65536.0 / bins)
+            wh = np.minimum(u, 65535).astype('<u2').view(np.uint8).reshape(-1, 2)
+            rec[sel, 14:16] = wh
+            rec[sel, 16:18] = wh
 
     table, index = [], {}
     var = np.zeros(m, np.uint16)

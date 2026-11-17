@@ -1,17 +1,24 @@
-"""Build a playable map package from an elevation grid (same recipe as the hand-built custom maps).
+"""Build a playable map package from an elevation grid.
 
-The map is a copy of the game's Mad River Glen map with:
-  * its landscape heights (16 tiles in the .ubulk, the 16 texture storage providers, component bounds, collision)
-    replaced, the landscape frame (extent / vertical scale) and the edge skirt fitted to the new terrain
-  * its own names: every renamed string keeps its length (slug = 14 chars like 'mad_river_glen', starting save = 26
-    chars like 'IS_Map_sugar_bowl_tutorial')
+The map is the Map Creator's own template (data/map_template.zip: a level, forest, map preview, height texture and
+starting save made from scratch in the mod kit and laid out like the game's maps, mod-loader-upload/kit/maptemplate.py)
+filled in with:
+  * its landscape heights (16 tiles in the .ubulk, the 16 texture storage providers, component bounds, collision),
+    the landscape frame (extent / vertical scale), the edge skirt and the preview camera fitted to the new terrain, and
+    its own landscape and heightfield GUIDs
+  * its own names: every renamed string keeps its length (slug = 14 chars like the template's 'maptemplate000',
+    starting save = 26 chars like 'IS_Map_maptemplate000_tuto')
   * its own 64 snow shell meshes (snow piles / drifts, see shells.py), or none (white ground only) without the template
-  * its own forest, height texture, map preview and starting save (ticket office on the base area)
+  * its own forest, height texture and map preview, and with the real resort a starting save (startsave.py)
+  * the game's compiled terrain material, from the player's game (terrain_material.py): the one thing a map has that
+    cannot be made from scratch
 and is packed with retoc into ZZZ_MC_<slug>_P.pak/.ucas/.utoc plus a .skimap package for the map installer.
 """
+import hashlib
 import io
 import json
 import logging
+import math
 import os
 import re
 import secrets
@@ -25,27 +32,28 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw
 
-from . import canopy, gamedata, net, resort, shells, trees
+from . import canopy, gamedata, net, resort, shells, startsave, trees
 from .engine import collision_write as cw
 from .engine import component_bounds as cb
 from .engine import frame as FR
-from .engine import gvas_edit
 from .engine import heightmap as hm
 from .engine import legacy_header as lh
 from .engine import map_frame as mf
 from .engine import material_params as matp
 from .engine import provider_write as pw
+from .engine import terrain_material as tmat
 from .engine import terrain_write as tw
 
 log = logging.getLogger(__name__)
 G = 2017
 C = 'SkiResortSimulator/Content/'
-DONOR = 'mad_river_glen'
-DONOR_MAP = 'Map_mad_river_glen_real'
-IS_OLD = 'IS_Map_sugar_bowl_tutorial'
-IS_KEY_OLD = b'Map_sugar_bowl_real'
-TEMPLATE_KEY = 'Map_soda_springs_real'          # locked entry of the game's map list new entries are copied from
-ENTRY_FORMAT = 3
+TSLUG = gamedata.TEMPLATE_SLUG                  # the template's own names, renamed per map
+TMAP = 'Map_%s_real' % TSLUG
+IS_OLD = 'IS_Map_%s_tuto' % TSLUG
+TEMPLATE_KEY = 'Map_soda_springs_real'          # entry of the game's map list new entries are copied from
+PREVIEW_K = 2.6173203                           # the stock maps' preview camera: distance / radius of the landscape's
+                                                # bounding sphere (the same to 1e-6 on all of them)
+ENTRY_FORMAT = 4                                 # 4 (1.10): the entry may name no starting save
 # what a map is built like; maps of an older recipe show "Rebuild recommended" in My Maps
 #   2 (1.1.0): terrain mips made like Unreal's (no cracks at tile borders), edges fitted to the edge wall, tree limit
 #   3 (1.1.1): no trees on cliffs / bare rock (slope falloff; the steepest tree slope is spec['tree_slope'] since 1.1.4)
@@ -57,14 +65,15 @@ ENTRY_FORMAT = 3
 #   9 (1.8.0): forests in stands of the species the game's own maps of the biome have, none broadleaf near the summits
 #  10 (1.8.1): dead trees and living krummholz one by one among healthy ones, no dying (were whole stands: bare tops)
 #  11 (1.8.2): forests within the game's budget of tree instances (big maps ran at half the frame rate)
-RECIPE = 11
-RECIPE_OSM = 15                                   # with the real trails and lifts: 9 (1.6.1) without the glades,
+#  12 (1.10.0): made from the Map Creator's own template, not a copy of a game map; no starting save (as the game's maps)
+RECIPE = 12
+RECIPE_OSM = 16                                   # with the real trails and lifts: 9 (1.6.1) without the glades,
                                                   # 10 (1.6.2) a run drawn twice in OSM built once, 11 (1.7.2) the
                                                   # forest round the resort follows the real tree cover, 12 (1.7.3)
                                                   # trail curves follow bends (no folded loops), 13 (1.8.0) the new
                                                   # forests, and each run as wide as its real cut through the forest,
                                                   # 14 (1.8.1) dead trees and krummholz one by one, 15 (1.8.2) the
-                                                  # tree budget
+                                                  # tree budget, 16 (1.10.0) the template, a starting save of its own
 BUILD_LOCK = threading.Lock()                     # frame.py holds the map frame globally: one build at a time
 
 
@@ -105,19 +114,23 @@ class Names:
         self.p_htx = '/Game/Materials/Terrain/Generated/%s/H_%s_Out' % (slug, slug)
         self.p_pre = '/Game/Generated/DA_MapPreview_' + self.mapn
         self.p_is = '/Game/InitialSaves/' + self.is_new
+        self.p_mat = '/Game/Materials/Terrain/Generated/%s/MI_%s_Terrain' % (slug, slug)
 
     def renames(self, kind):
+        """the template's names -> this map's"""
         m = {
-            'obs': {'/Game/Generated/DA_BakedObstacles_' + DONOR_MAP: self.p_obs,
-                    'DA_BakedObstacles_' + DONOR_MAP: 'DA_BakedObstacles_' + self.mapn},
-            'htx': {'/Game/Materials/Terrain/Generated/%s/H_%s_Out' % (DONOR, DONOR): self.p_htx,
-                    'H_%s_Out' % DONOR: 'H_%s_Out' % self.slug},
-            'pre': {'/Game/Generated/DA_MapPreview_' + DONOR_MAP: self.p_pre,
-                    'DA_MapPreview_' + DONOR_MAP: 'DA_MapPreview_' + self.mapn},
+            'obs': {'/Game/Generated/DA_BakedObstacles_' + TMAP: self.p_obs,
+                    'DA_BakedObstacles_' + TMAP: 'DA_BakedObstacles_' + self.mapn},
+            'htx': {'/Game/Materials/Terrain/Generated/%s/H_%s_Out' % (TSLUG, TSLUG): self.p_htx,
+                    'H_%s_Out' % TSLUG: 'H_%s_Out' % self.slug},
+            'mat': {'/Game/Materials/Terrain/Generated/%s/MI_%s_Terrain' % (TSLUG, TSLUG): self.p_mat,
+                    'MI_%s_Terrain' % TSLUG: 'MI_%s_Terrain' % self.slug},
+            'pre': {'/Game/Generated/DA_MapPreview_' + TMAP: self.p_pre,
+                    'DA_MapPreview_' + TMAP: 'DA_MapPreview_' + self.mapn},
             'is': {'/Game/InitialSaves/' + IS_OLD: self.p_is, IS_OLD: self.is_new},
         }
         if kind == 'map':
-            return dict({'/Game/Maps/Generated/' + DONOR_MAP: self.p_map, DONOR_MAP: self.mapn}, **m['obs'], **m['htx'])
+            return dict({'/Game/Maps/Generated/' + TMAP: self.p_map, TMAP: self.mapn}, **m['obs'], **m['htx'], **m['mat'])
         return m[kind]
 
     def rename(self, ua, kind, old_pkg, new_pkg):
@@ -246,8 +259,18 @@ def noshell(umap, uexp):
     return bytes(out)
 
 
-def patch_environment(umap, uexp, peak_m, base_m):
-    """real peak / base elevation into the LevelEnvironmentSettings export (the game's elevation readout, lapse rate)"""
+def preview_pose(fr):
+    """(camera location in cm, distance) where the game's own maps put their preview camera: pitch -20, yaw 45, aimed
+    at the middle of the landscape's box, PREVIEW_K times its bounding sphere's radius away"""
+    zc = 32768 * fr.sc * 100.0
+    d = PREVIEW_K * math.sqrt(2 * (fr.half * 100.0) ** 2 + zc * zc)
+    h = d * math.cos(math.radians(20.0))
+    return (-h / math.sqrt(2), -h / math.sqrt(2), zc + d * math.sin(math.radians(20.0))), d
+
+
+def patch_environment(umap, uexp, peak_m, base_m, camera=None):
+    """real peak / base elevation into the LevelEnvironmentSettings export (the game's elevation readout, lapse rate)
+    and, given, the preview camera's location (3 doubles after BakedObstacleData)"""
     f, names, _, _ = lh.parse(umap)
     eo, ec = f['exports_offset'][1], f['exports_count'][1]
     nxt = f['cell_imports_offset'][1] if f['cell_imports_offset'][1] > 0 else f['depends_offset'][1]
@@ -264,6 +287,11 @@ def patch_environment(umap, uexp, peak_m, base_m):
             if not (50 < old[0] < 9000 and -500 < old[1] < old[0]):
                 raise ValueError('environment settings layout changed (%r)' % (old,))
             struct.pack_into('<2f', out, o + 20, peak_m, base_m)
+            cam = struct.unpack_from('<3d', out, o + 32)
+            if not (cam[0] == cam[1] < 0 < cam[2]):
+                raise ValueError('environment settings layout changed (preview camera %r)' % (cam,))
+            if camera:
+                struct.pack_into('<3d', out, o + 32, *camera)
             hits += 1
     if hits != 1:
         raise ValueError('expected one environment settings export, found %d' % hits)
@@ -271,17 +299,19 @@ def patch_environment(umap, uexp, peak_m, base_m):
 
 
 def terrain_files(H, fr, gd, names, biome, peak_m, base_m, cancel, progress, with_shells=False):
-    """(umap, uexp, ubulk) of the re-terrained donor map; with_shells keeps the donor's 64 snow shell components and
-    points them at the map's own meshes (FNames keep a trailing _<n> as their number: '.../SM_SnowShell_<i>')"""
+    """(umap, uexp, ubulk) of the template with this terrain; with_shells keeps the template's 64 snow shell
+    components and points them at the map's own meshes (FNames keep a trailing _<n> as their number:
+    '.../SM_SnowShell_<i>'), else they draw no mesh"""
     ub = gd['ubulk']
     out = bytearray(ub)
+    layout = gd['layout']
     hts, nts, orig = {}, {}, {}
     N = tw.normals(H, fr.sp * 100.0, fr.sc * 100.0)       # whole map at once: tiles agree on their border normals
     k = 0
     for tx in range(4):
         for ty in range(4):
             cancel.check()
-            t = tw.LAYOUT[tx][ty]
+            t = layout[tx][ty]
             o = hm.load_tile_stream(ub, t)
             orig[t] = tw.decode_tile(o)[0]
             Ht = H[ty * 504:ty * 504 + 505, tx * 504:tx * 504 + 505].tolist()
@@ -293,9 +323,9 @@ def terrain_files(H, fr, gd, names, biome, peak_m, base_m, cancel, progress, wit
             k += 1
             progress(k / 16 * 0.6, 'Writing terrain (%d of 16)...' % k)
     umap = gd['umap']
-    um = names.rename(umap, 'map', '/Game/Maps/Generated/' + DONOR_MAP, names.p_map)
+    um = names.rename(umap, 'map', '/Game/Maps/Generated/' + TMAP, names.p_map)
     if with_shells:
-        um = lh.edit(um, rename={'/Game/Meshes/SnowShell/%s/SM_SnowShell_%d' % (DONOR_MAP, i):
+        um = lh.edit(um, rename={'/Game/Meshes/SnowShell/%s/SM_SnowShell_%d' % (TMAP, i):
                                  '/Game/Meshes/SnowShell/%s/SM_SnowShell_%d' % (names.mapn, i) for i in range(8)})[0]
     if biome != 'Northeast':
         um = lh.edit(um, rename={'DA_BiomeSettings_Northeast': 'DA_BiomeSettings_' + biome,
@@ -304,17 +334,37 @@ def terrain_files(H, fr, gd, names, biome, peak_m, base_m, cancel, progress, wit
     progress(0.65, 'Fitting the landscape...')
     ue = pw.patch_providers(umap, gd['uexp'] if with_shells else noshell(umap, gd['uexp']), hts, nts,
                             scale=fr.root()[3:6])
-    g_old, g_new = cb.global_grid(orig, tw.LAYOUT), cb.global_grid(hts, tw.LAYOUT)
+    g_old, g_new = cb.global_grid(orig, layout), cb.global_grid(hts, layout)
     ue = cb.patch_boxes(umap, ue, g_old, g_new)
     cancel.check()
     progress(0.8, 'Building collision...')
     ue = cw.patch_collision(umap, ue, g_old, g_new)
     fr.install(names.slug)
     ue = mf.patch_frame(umap, ue, H)
-    ue = patch_environment(umap, ue, peak_m, base_m)
-    um, ue = matp.set_scalars(um, ue, MATERIAL_OVERRIDES)     # last: moves the exports after it
+    ue = patch_environment(umap, ue, peak_m, base_m, preview_pose(fr)[0])
+    ue = map_guids(ue, gd['guids'], names.slug)
     progress(1.0, 'Terrain done')
     return um, ue, bytes(out)
+
+
+def map_guids(uexp, guids, slug):
+    """the template's landscape and heightfield GUIDs (template.json) -> this map's own: the engine shares terrain
+    collision between components of the same HeightfieldGuid, so no two maps may have one in common"""
+    out = bytearray(uexp)
+    for i, g in enumerate(guids):
+        old = bytes.fromhex(g)
+        at = out.find(old)
+        if at < 0 or out.find(old, at + 1) >= 0:
+            raise ValueError('landscape guid layout changed')
+        out[at:at + 16] = hashlib.sha1(('%s:%d' % (slug, i)).encode()).digest()[:16]
+    return bytes(out)
+
+
+def terrain_material(gd, names):
+    """(uasset, uexp) of the map's own terrain material package: the game's compiled M_Terrain instance, out of the
+    stock map in the player's game (terrain_material.py), with this Map Creator's material settings"""
+    ua, ue = tmat.extract(gd['stock_umap'], gd['stock_uexp'], names.p_mat)
+    return matp.set_scalars(ua, ue, MATERIAL_OVERRIDES)
 
 
 # Terrain material settings for real-world mountains. M_Terrain's scalar defaults (cooked material, game build
@@ -420,12 +470,13 @@ def render_preview(H, fr, W=1920, Hh=1080, step=6, yaw=38.0, pitch=33.0, zex=1.3
     return img
 
 
-def preview_assets(gd, img):
+def preview_assets(gd, img, terrain_gen):
+    """the map preview data asset: thumbnail and background JPEGs and the map's terrain generation (its whole export
+    written here: unversioned header 00 07 = all three properties, then 4 bytes of the object's lazy-pointer flag)"""
     ua, ue0 = gd['pv_ua'], gd['pv_ue']
     l1 = struct.unpack_from('<i', ue0, 2)[0]
     l2 = struct.unpack_from('<i', ue0, 6 + l1)[0]
-    tail = ue0[6 + l1 + 4 + l2:]
-    if len(tail) != 8:
+    if ue0[:2] != b'\x00\x07' or len(ue0) != 6 + l1 + 4 + l2 + 8:
         raise ValueError('map preview layout changed')
 
     def jpg(im, q):
@@ -434,60 +485,26 @@ def preview_assets(gd, img):
         return b.getvalue()
     j2 = jpg(img.resize((1920, 1080), Image.LANCZOS), 88)
     j1 = jpg(img.resize((640, 360), Image.LANCZOS), 85)
-    ue = ue0[:2] + struct.pack('<i', len(j1)) + j1 + struct.pack('<i', len(j2)) + j2 + tail
+    ue = (b'\x00\x07' + struct.pack('<i', len(j1)) + j1 + struct.pack('<i', len(j2)) + j2
+          + struct.pack('<i', terrain_gen) + bytes(4))
     return lh.set_export_size(ua, len(ue)), ue
 
 
-def initial_save(gd, fr, terrain_gen, base_row, base_col, base_h, mappath, new_key):
-    """starting save: Sugar Bowl tutorial save with this map's path, terrain seed and world bounds, the ticket office /
-    camera / cleared zones moved to the base area"""
-    src = gd['is_ue']
-    n = struct.unpack_from('<i', src, 2)[0]
-    gvas, trailer = src[6:6 + n], src[6 + n:]
-    gv = bytearray(gvas_edit.patch(gvas, mappath=mappath, terrain_generation=terrain_gen))
-    props = {nm: (d, size, so) for nm, typ, size, d, so, st in gvas_edit.walk(bytes(gv))}
-    nx = (base_col * fr.sp - fr.half) * 100.0
-    ny = (base_row * fr.sp - fr.half) * 100.0
-    nz = (base_h + 32768) * fr.sc * 100.0
-    d, size, so = props['Buildings']
-    ox, oy, oz = struct.unpack_from('<3d', gv, d + 487)
-    if (ox, oy) != (-17300.0, -700.0):
-        raise ValueError('starting save layout changed (ticket office at %r)' % ((ox, oy),))
-    struct.pack_into('<3d', gv, d + 487, nx, ny, nz)
-    dx, dy, dz = nx - ox, ny - oy, nz - oz
-    d, size, so = props['CameraLocation']
-    cx, cy, cz = struct.unpack_from('<3d', gv, d)
-    struct.pack_into('<3d', gv, d, cx + dx, cy + dy, cz + dz)
-    d2, size2, so2 = props['TrailMapData']
-    i = bytes(gv[d2:d2 + size2]).find(bytes([0x31, 0, 0, 0, 8]))
-    if i <= 0:
-        raise ValueError('starting save trail map layout changed')
-    e = fr.half * 100.0
-    struct.pack_into('<6d', gv, d2 + i + 5, -e, -e, 0.0, e, e, fr.top_z_cm())
-    d, size, so = props['ClearedObstaclesByLevel']
-    raw = bytearray(gv[d:d + size])
-    pos = 0
-    while True:
-        i = raw.find(b'Center\x00', pos)
-        if i < 0:
-            break
-        j = raw.find(b'\x10\x00\x00\x00\x08', i)
-        zx, zy = struct.unpack_from('<2d', raw, j + 5)
-        struct.pack_into('<2d', raw, j + 5, zx + dx, zy + dy)
-        pos = i + 10
-    k = raw.find(struct.pack('<i', len(IS_KEY_OLD) + 1) + IS_KEY_OLD + b'\0')
-    if k <= 0:
-        raise ValueError('starting save level key not found')
-    nk = struct.pack('<i', len(new_key) + 1) + new_key + b'\0'
-    raw[k:k + 4 + len(IS_KEY_OLD) + 1] = nk
-    gv[d:d + size] = raw
-    struct.pack_into('<i', gv, so, size + len(new_key) - len(IS_KEY_OLD))
-    return src[:2] + struct.pack('<i', len(gv)) + bytes(gv) + trailer
+def save_asset(gd, gvas):
+    """the starting save data asset: the GVAS and the game's save version (its whole export written here: 00 07 = all
+    three properties, then the lazy-pointer flag)"""
+    ue0 = gd['is_ue']
+    if ue0[:2] != b'\x00\x07' or len(ue0) != 6 + struct.unpack_from('<i', ue0, 2)[0] + 12:
+        raise ValueError('starting save asset layout changed')
+    major, minor = startsave.template()['version']
+    ue = b'\x00\x07' + struct.pack('<i', len(gvas)) + gvas + struct.pack('<ii', major, minor) + bytes(4)
+    return lh.set_export_size(gd['is_ua'], len(ue)), ue
 
 
 # ---------------------------------------------------------------- checks run once per game version
 
-def check_donor(umap, uexp):
+def check_template(umap, uexp):
+    """the template's map against the writers (gamedata checks the game's own map against the template's layout)"""
     noshell(umap, uexp)
     roots = [e for e in mf.find_exports(umap, 'SceneComponent') if e[0] == 'RootComponent0']
     if len(roots) != 1 or len(mf.find_exports(umap, 'ProceduralMeshComponent')) != 1:
@@ -498,14 +515,17 @@ def check_donor(umap, uexp):
 
 
 def check_templates(gd):
-    """dry-run the asset writers on a tiny synthetic map"""
+    """dry-run the writers of every asset on a tiny synthetic map, and the terrain material from the game's map"""
     H = np.zeros((G, G), np.int64)
     fr = Frame(6000.0, 500.0, 1500.0)
-    obstacles_assets(gd, b'', trees.encode_table([]), trees.read_skob(gd['obs_ue'])['hdr'][16:], fr)
+    check_template(gd['umap'], gd['uexp'])
+    map_guids(gd['uexp'], gd['guids'], 'test_check_000')
+    obstacles_assets(gd, b'', trees.encode_table([]), trees.header_tail('mrg'), fr)
     height_texture(gd, H)
-    preview_assets(gd, Image.new('RGB', (64, 36)))
-    initial_save(gd, fr, 1, 1000, 1000, 0, '/Game/Maps/Generated/Map_test_check_000_real', b'Map_test_check_000_real')
+    preview_assets(gd, Image.new('RGB', (64, 36)), 1)
+    save_asset(gd, startsave.build(fr, 1, 1000, 1000, 0, Names('test_check_000'), preview_pose(fr)[1]))
     lh.parse(gd['is_ua'])
+    terrain_material(gd, Names('test_check_000'))
 
 
 # ---------------------------------------------------------------- the whole map
@@ -515,21 +535,24 @@ def typed(stats):
 
 
 def entry_spec(names, display, biome, stats, start_save=False):
-    """start_save: New Game starts from the map's starting save (the full game uses one only when this is set; the
-    stock maps start empty), e.g. with the real resort's lifts and trails in it"""
+    """start_save: the map has a starting save and New Game starts from it (with the real resort's lifts and trails);
+    without one the map starts empty, like the game's own maps (none of them has one but the tutorial map)"""
     prev = 'DA_MapPreview_' + names.mapn
-    return {'append': TEMPLATE_KEY,
-            'add_names': [names.p_map, names.mapn, names.p_pre, prev, names.p_is, names.is_new],
-            'initial_save': {'package': names.p_is, 'object': names.is_new},
+    spec = {'append': TEMPLATE_KEY,
+            'add_names': [names.p_map, names.mapn, names.p_pre, prev] + ([names.p_is, names.is_new] if start_save else []),
             'set': [['Map', 'ref', names.p_map, names.mapn], ['MapPreview', 'ref', names.p_pre, prev]]
-                   + ([['InitialSave', 'initial_save']] if start_save else []) +
                    # never a tutorial map (install.custom_entry says why); its tutorial start is the same save
-                   [['TutorialInitialSave', 'initial_save'], ['bIsTutorialMap', 'remove'],
+                   + ([['InitialSave', 'initial_save'], ['TutorialInitialSave', 'initial_save']] if start_save
+                      else [['TutorialInitialSave', 'remove']]) +
+                   [['bIsTutorialMap', 'remove'],
                     # custom maps are real size only: no tabletop variant for Map size "Diorama" (Advanced options;
                     # the template's would be Soda Springs')
                     ['DioramaVariantMap', 'ref', 'None', 'None'], ['DioramaTutorialInitialSave', 'remove'],
                     ['DisplayName', 'text', display], ['BiomeSettings', 'import', 'DA_BiomeSettings_' + biome]]
             + typed(stats)}
+    if start_save:
+        spec['initial_save'] = {'package': names.p_is, 'object': names.is_new}
+    return spec
 
 
 def build(spec, dem, game, out_dir, cancel, progress):
@@ -578,52 +601,56 @@ def _build(spec, dem, game, out_dir, cancel, progress):
     cancel.check()
 
     progress(0.02, 'Planting trees...')
-    donors = {'mrg': trees.read_skob(gd['obs_ue']), 'sb': trees.read_skob(gd['sb_obs_ue'])}
     # the whole forest (the game's density), then the slider's count kept, round the lifts and trails where it thins
     km = spec['size_m'] / 1000.0
     budget = trees.tree_budget(km, int(spec.get('max_trees', trees.DEFAULT_TREES)), bool(spec.get('experimental')))
     recs, table, hdr_tail, counts = trees.forest(
-        H, fr.hmin, fr.sp, fr.sc, spec['biome'], spec['treeline'], spec['valley'], donors, game.species(),
+        H, fr.hmin, fr.sp, fr.sc, spec['biome'], spec['treeline'], spec['valley'], game.species(),
         game.biome_species(spec['biome']), spec['seed'], max_trees=trees.max_trees(km, True),
         tree_slope=float(spec.get('tree_slope', trees.TREE_SLOPE)), treeline_fade=float(spec.get('treeline_fade', 0.0)),
         clear=clear, cover=cover, lat=spec['lat'], budget=budget)
     obs_ua, obs_ue = obstacles_assets(gd, recs, table, hdr_tail, fr)
-    obs_ua = names.rename(obs_ua, 'obs', '/Game/Generated/DA_BakedObstacles_' + DONOR_MAP, names.p_obs)
+    obs_ua = names.rename(obs_ua, 'obs', '/Game/Generated/DA_BakedObstacles_' + TMAP, names.p_obs)
     cancel.check()
 
     progress(0.12, 'Terrain height texture...')
-    htx_ua = names.rename(gd['htx_ua'], 'htx', '/Game/Materials/Terrain/Generated/%s/H_%s_Out' % (DONOR, DONOR), names.p_htx)
+    htx_ua = names.rename(gd['htx_ua'], 'htx', '/Game/Materials/Terrain/Generated/%s/H_%s_Out' % (TSLUG, TSLUG), names.p_htx)
     htx_ue = height_texture(gd, H)
+    mat_ua, mat_ue = terrain_material(gd, names)
 
     progress(0.15, 'Rendering the map preview...')
     img = render_preview(H, fr)
-    pv_ua, pv_ue = preview_assets(gd, img)
-    pv_ua = names.rename(pv_ua, 'pre', '/Game/Generated/DA_MapPreview_' + DONOR_MAP, names.p_pre)
+    pv_ua, pv_ue = preview_assets(gd, img, int(spec['tg']))
+    pv_ua = names.rename(pv_ua, 'pre', '/Game/Generated/DA_MapPreview_' + TMAP, names.p_pre)
     cancel.check()
 
-    progress(0.25, 'Starting save...')
-    is_ue = initial_save(gd, fr, spec['tg'], row, col, base_h, names.p_map, names.mapn.encode())
-    if pl:
-        is_ue = resort.add_to_save(is_ue, pl, terrain)
-    is_ua = names.rename(lh.set_export_size(gd['is_ua'], len(is_ue)), 'is', '/Game/InitialSaves/' + IS_OLD, names.p_is)
+    files = {}
+    if pl:                                 # the real resort's lifts and trails: New Game starts from a save with them
+        progress(0.25, 'Starting save...')
+        gv = startsave.build(fr, spec['tg'], row, col, base_h, names, preview_pose(fr)[1])
+        wrapped = resort.add_to_save(b'\0\0' + struct.pack('<i', len(gv)) + gv, pl, terrain)   # (asset-wrapped GVAS)
+        is_ua, is_ue = save_asset(gd, wrapped[6:6 + struct.unpack_from('<i', wrapped, 2)[0]])
+        is_ua = names.rename(is_ua, 'is', '/Game/InitialSaves/' + IS_OLD, names.p_is)
+        files.update({C + 'InitialSaves/%s.uasset' % names.is_new: is_ua, C + 'InitialSaves/%s.uexp' % names.is_new: is_ue})
 
     shell = {}
     if spec.get('snow_piles', True) and game.snow_piles():
         shell = shells.shell_files(H, fr.root()[:6], names.mapn, cancel, stage(0.27, 0.37))
     um, ue, ub = terrain_files(H, fr, gd, names, spec['biome'], peak_m, base_m, cancel, stage(0.37, 0.85),
                                with_shells=bool(shell))
-    files = {
+    files.update({
         C + 'Maps/Generated/%s.umap' % names.mapn: um, C + 'Maps/Generated/%s.uexp' % names.mapn: ue,
         C + 'Maps/Generated/%s.ubulk' % names.mapn: ub,
         C + 'Generated/DA_BakedObstacles_%s.uasset' % names.mapn: obs_ua,
         C + 'Generated/DA_BakedObstacles_%s.uexp' % names.mapn: obs_ue,
         C + 'Materials/Terrain/Generated/%s/H_%s_Out.uasset' % (names.slug, names.slug): htx_ua,
         C + 'Materials/Terrain/Generated/%s/H_%s_Out.uexp' % (names.slug, names.slug): htx_ue,
+        C + 'Materials/Terrain/Generated/%s/MI_%s_Terrain.uasset' % (names.slug, names.slug): mat_ua,
+        C + 'Materials/Terrain/Generated/%s/MI_%s_Terrain.uexp' % (names.slug, names.slug): mat_ue,
         C + 'Generated/DA_MapPreview_%s.uasset' % names.mapn: pv_ua,
         C + 'Generated/DA_MapPreview_%s.uexp' % names.mapn: pv_ue,
-        C + 'InitialSaves/%s.uasset' % names.is_new: is_ua, C + 'InitialSaves/%s.uexp' % names.is_new: is_ue,
         'scriptobjects.bin': gd['scriptobjects'],
-    }
+    })
     files.update(shell)
     cancel.check()
     progress(0.87, 'Packing the map...')

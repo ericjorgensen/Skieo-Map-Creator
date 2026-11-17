@@ -1,9 +1,10 @@
-"""Scalar parameter overrides on the map's landscape material instance (the one big LandscapeMaterialInstanceConstant;
-the 1024 per-component instances take it as their parent).
+"""Scalar parameter overrides on the map's terrain material instance (the one big LandscapeMaterialInstanceConstant,
+in the map's own terrain material package, terrain_material.py; the map's 1024 per-component instances take it as
+their parent).
 
 Cooked, unversioned property layout (worked out on the stock assets):
   * LandscapeMaterialInstanceConstant property indices = MaterialInstanceConstant's + 5 (the landscape class's own
-    properties come first). Present on the donor: 15 Parent, 19 bHasStaticPermutationResource, 38, 47, 49.
+    properties come first). Present on the game's: 15 Parent, 19 bHasStaticPermutationResource, 38, 47, 49.
     ScalarParameterValues is 28 (MIC 23; TextureParameterValues is 26 / 31, used by the per-component instances).
   * FScalarParameterValue = header 0x0700 (3 properties) + FMaterialParameterInfo (header 0x0700, FName, u8
     association, i32 index) + f32 value + FGuid ExpressionGUID (left zero, flagged in the zero mask).
@@ -14,7 +15,7 @@ import struct
 from . import legacy_header as lh
 
 SCALAR_VALUES = 28
-DONOR_PRESENT = [15, 19, 38, 47, 49]
+GAME_PRESENT = [15, 19, 38, 47, 49]               # what the game's compiled instance has
 GLOBAL_PARAMETER = 2
 
 
@@ -88,7 +89,7 @@ def set_scalars(umap, uexp, values):
     o = mic['off'] - th
     d = uexp[o:o + mic['size']]
     present, hlen = read_header(d)
-    if present != DONOR_PRESENT:
+    if present != GAME_PRESENT:
         raise ValueError('landscape material instance layout changed (%s)' % present)
     parent, flag = struct.unpack_from('<iB', d, hlen)
     if parent >= 0 or flag != 1:

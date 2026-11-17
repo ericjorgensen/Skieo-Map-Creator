@@ -3,7 +3,7 @@
 Layout (verified on all 16):
   [0,118)      header, copied, except the landscape grid scale: f64 x / y spacing (cm per vertex) at +26 / +34 and
                f64 z scale (cm per 128 height units) at +42, the same three numbers as the landscape root's scale.
-               The game rebuilds the tile's normals from its heights with these; left at the donor's, every tile was
+               The game rebuilds the tile's normals from its heights with these; left at the template's, every tile was
                lit as if the ground were steeper / flatter, and only its border (normal_ring) was right: a line.
   [118,6616)   mip3: 57x57 big-endian int16 running sum from 0
   [6616,7120)  edge normals of mip3: terrain_write.normal_ring, (B, A) byte deltas from 128

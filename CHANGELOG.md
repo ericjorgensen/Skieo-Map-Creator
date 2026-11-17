@@ -2,6 +2,24 @@
 
 Maps made with an older version show **Rebuild recommended** in My Maps: one click on Rebuild gives them the fixes.
 
+## v1.10.0
+- **Maps built from the ground up.** Every map used to be a copy of one of the game's own maps (Mad River Glen) with
+  the terrain swapped, its forest learned from Mad River Glen's and Sugar Bowl's, and its starting save Sugar Bowl's
+  tutorial save. Now every map is the Map Creator's own: a template made from scratch in the Unreal editor, laid out
+  like the game's maps but holding only the map's own data, filled in with your terrain, forest, snow, edge wall and
+  preview. The one piece taken from your game is the compiled terrain material, which every game map carries and only
+  the game's developer can make; it is read from your game when a map is built and never shipped.
+- **Maps start like the game's own**: a New Game on a map without the real resort starts empty, as on every game map
+  (it used to carry a starting save that was never used). Maps with the real resort start from a save written from
+  scratch with the real lifts and trails, the ticket office on the base area and nothing else (no tutorial state or
+  data from another map).
+- **After a game update** that changes how the game lays out its maps, the Map Creator says so and asks for an update
+  instead of building a map that would not load.
+- The map's preview camera and the terrain generation in its preview are the map's own (they were Mad River Glen's).
+- Every map has its own terrain collision IDs (all maps shared Mad River Glen's, and the game caches terrain collision
+  by that ID), and the collision's height range is written where the game reads it.
+- Maps show **Rebuild recommended**: rebuild them to get maps made the new way.
+
 ## v1.9.0
 - **Mods moved to Z's Mod Loader.** The Mod Library is gone from the Map Creator: mods for Ski-E-O, the cheat menu,
   Anarchy, Speed Control, the Doppelmayr R2 lifts and Alpine Buildings among them, are installed with

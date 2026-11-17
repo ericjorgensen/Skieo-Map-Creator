@@ -5,7 +5,8 @@ Per component (64x64 samples):
   after the '00 10 00 00' marker: 4096 u16 LE heights quantised over [min,max] (signed H units)
   rest[12:20] min (f64), [20:28] max (f64), [32:40] range (f64), [40:48] range/65535 (f64)
   bounds table: u32 count 121, then 11x11 blocks (6-quad blocks, 7x7 samples overlap) of (min,max) u16 row-major
-  last 20 bytes: min (f32) at -20.. , max (f32) at -4
+  last 24 bytes: the heightfield's local bounds (f32 min x, y, z, max x, y, z) = (-1e-4, -1e-4, min, 63.0001, 63.0001,
+  max) on the game's maps: heights at -16 and -4 (up to 1.10 the min went to -20, min y, and min z kept the donor's)
 """
 import logging
 import struct
@@ -102,7 +103,7 @@ def patch_collision(umap_bytes, uexp_bytes, Hg_orig, Hg_new, verify=True):
         tp = d.find(old_tab, r0)
         assert tp > 0, 'bounds table not found'
         o[tp:tp + len(old_tab)] = bounds_table(w).tobytes()
-        struct.pack_into('<f', o, len(o) - 20, float(nmn))
+        struct.pack_into('<f', o, len(o) - 16, float(nmn))
         struct.pack_into('<f', o, len(o) - 4, float(nmx))
         out[off:off + size] = o
     log.info('collision components rewritten (skipped %d)' % bad)

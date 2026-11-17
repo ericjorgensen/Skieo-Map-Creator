@@ -3,8 +3,9 @@
 The automatic biome is the biome of the nearest real resort in the game's own map list (DA_LevelRegistry: every entry
 has a latitude, longitude and biome), so a window in Chile gets the Andes, one in Norway the Scandes, and so on.
 Trees: the species come from the game's own niche model (ecology.py: the biome's roster and each species' niche, read
-from the game); each tree takes its size / health / shape from a stock forest at the same relative elevation (Sugar
-Bowl for the 'sb' donor, Mad River Glen for 'mrg'), with the meshes the game itself uses for that species.
+from the game); each tree's size / health from the species' patterns on the game's maps, its scale like the game's trees
+at the same relative elevation (the 'sb' look: Sugar Bowl's trees, 'mrg': Mad River Glen's; measured once, offline:
+data/forest_stats.json), with the meshes the game itself uses for that species.
 """
 from . import geo
 
@@ -31,36 +32,36 @@ STOCK = [
     ('Killington', 43.600, -72.820, 'Northeast'),
 ]
 
-# donor forest ('sb' Sugar Bowl / 'mrg' Mad River Glen), species map donor -> biome species, default snowfall (median
+# look of the trees ('sb' Sugar Bowl's / 'mrg' Mad River Glen's, forest_stats.json), default snowfall (median
 # of the biome's own entries), treeline (m) as a + b * (|lat| - lat0), and extra rules
 BIOMES = {
-    'Northeast': dict(label='Northeast (New England / Quebec)', donor='mrg', snow=1.0,
+    'Northeast': dict(label='Northeast (New England / Quebec)', look='mrg', snow=1.0,
                       treeline=(1250.0, -45.0, 44.0)),
-    'Rockies': dict(label='Rocky Mountains', donor='sb', snow=0.96, treeline=(3550.0, -110.0, 39.0)),
-    'CanadianRockies': dict(label='Canadian Rockies', donor='sb', snow=1.6, treeline=(2250.0, -60.0, 51.0)),
-    'Tahoe': dict(label='Sierra Nevada / Tahoe', donor='sb', snow=1.05, treeline=(3000.0, -150.0, 38.5)),
-    'Utah': dict(label='Utah (Wasatch)', donor='sb', snow=1.1,
+    'Rockies': dict(label='Rocky Mountains', look='sb', snow=0.96, treeline=(3550.0, -110.0, 39.0)),
+    'CanadianRockies': dict(label='Canadian Rockies', look='sb', snow=1.6, treeline=(2250.0, -60.0, 51.0)),
+    'Tahoe': dict(label='Sierra Nevada / Tahoe', look='sb', snow=1.05, treeline=(3000.0, -150.0, 38.5)),
+    'Utah': dict(label='Utah (Wasatch)', look='sb', snow=1.1,
                  treeline=(3300.0, -100.0, 40.6)),
-    'PNW': dict(label='Pacific Northwest (Cascades)', donor='mrg', snow=1.0,
+    'PNW': dict(label='Pacific Northwest (Cascades)', look='mrg', snow=1.0,
                 treeline=(2400.0, -170.0, 44.0)),
-    'CoastMountains': dict(label='Coast Mountains (BC)', donor='mrg',
+    'CoastMountains': dict(label='Coast Mountains (BC)', look='mrg',
                            snow=1.0, treeline=(1900.0, -60.0, 50.0)),
-    'Alps': dict(label='European Alps', donor='sb',
+    'Alps': dict(label='European Alps', look='sb',
                  snow=0.95, treeline=(2200.0, -40.0, 46.0)),
-    'Scandes': dict(label='Scandinavia', donor='sb',
+    'Scandes': dict(label='Scandinavia', look='sb',
                     snow=0.75, treeline=(1000.0, -55.0, 61.0)),
-    'Hokkaido': dict(label='Japan (Hokkaido / Honshu)', donor='mrg', snow=0.8,
+    'Hokkaido': dict(label='Japan (Hokkaido / Honshu)', look='mrg', snow=0.8,
                      treeline=(1100.0, -100.0, 43.0)),
-    'Changbai': dict(label='Northeast China', donor='sb',
+    'Changbai': dict(label='Northeast China', look='sb',
                      snow=0.9, treeline=(2000.0, -60.0, 42.0)),
-    'Taebaek': dict(label='Korea', donor='mrg', snow=0.9,
+    'Taebaek': dict(label='Korea', look='mrg', snow=0.9,
                     treeline=(2000.0, 0.0, 37.0)),
-    'Andes': dict(label='Andes (Chile / Argentina)', donor='sb',
+    'Andes': dict(label='Andes (Chile / Argentina)', look='sb',
                   snow=1.0, treeline=(2400.0, -60.0, 33.0)),
-    'Patagonia': dict(label='Patagonia', donor='mrg', snow=1.0, treeline=(1650.0, -45.0, 41.0)),
-    'SouthernAlpsNZ': dict(label='New Zealand', donor='mrg', snow=0.8, treeline=(1300.0, -30.0, 43.0)),
-    'AustralianAlps': dict(label='Australian Alps', donor='sb', snow=0.94, treeline=(1850.0, -60.0, 36.5)),
-    'HawaiiAlpine': dict(label='Hawaii (alpine)', donor=None, snow=1.0, treeline=(0.0, 0.0, 20.0)),
+    'Patagonia': dict(label='Patagonia', look='mrg', snow=1.0, treeline=(1650.0, -45.0, 41.0)),
+    'SouthernAlpsNZ': dict(label='New Zealand', look='mrg', snow=0.8, treeline=(1300.0, -30.0, 43.0)),
+    'AustralianAlps': dict(label='Australian Alps', look='sb', snow=0.94, treeline=(1850.0, -60.0, 36.5)),
+    'HawaiiAlpine': dict(label='Hawaii (alpine)', look=None, snow=1.0, treeline=(0.0, 0.0, 20.0)),
 }
 
 

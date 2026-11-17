@@ -10,7 +10,7 @@ Tile blob (335,239 big-endian int16 per tile) -- verified layout:
 Heights are signed 16-bit "T"; world metres = 306.8 + 0.0093628 * T.
 Mips are made the way Unreal makes them (mip_chain), exact to rounding against the stock maps.
 The game rebuilds a tile's normals from its heights, except along the tile's border (that needs the neighbour tile):
-those come from the O blocks. Left at the donor's, they drew a line of wrong lighting along every tile border.
+those come from the O blocks. Left at the template's, they drew a line of wrong lighting along every tile border.
 """
 import array
 
