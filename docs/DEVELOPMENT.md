@@ -40,13 +40,12 @@ For players, see the [README](../README.md).
 The window is a local web UI (`web/`: Leaflet map, three.js 3D preview) shown by pywebview / WebView2. `server.py`
 serves it on 127.0.0.1, with a token-protected tile proxy on its own port.
 
-The Mod Library (`modlib.py`) copies the in-game Lua mods from `data/mods` into the game's `Binaries/Win64/ue4ss/Mods`
-(installing UE4SS from `data/ue4ss` when the game doesn't have it) and the pak mods from `data/lifts` into
-`Content/Paks/~mods` (Blueprint mods: `Content/Paks/LogicMods`). The build menu's table and the snow cap list can only
-come from one pak, so it merges them for all installed mods into its own pak, made from the player's game files
-(`engine/shared_assets.py`), keeping what mods installed by hand add (`modscan.py`, which also checks that a map
-package holds only a map). Mods by other modders are packaged into it with `packaging/package_mod.py`:
-[MODDING.md](MODDING.md).
+Mods are not the Map Creator's business any more: they come from Z's Mod Loader. The Mod Library of versions 1.2 to
+1.8 (removed in 1.9; its code is in the git history) installed UE4SS, Lua mods and lift and building packs into the
+game; `oldmods.py` takes out what it installed, once per game folder, the first time the game is found closed, by its
+markers and the hashes of the files it shipped. Installing a map checks that its package holds only a map
+(`install.Game.only_a_map`): no asset every mod shares (the build menu, the snow caps, the map list) and none of the
+game's own outside the map folders.
 
 ## Run from source
 
@@ -90,18 +89,20 @@ python packaging/make_tree_meshes.py <out>\SkiResortSimulator\Content
 
 | Path | What |
 |---|---|
-| `skieo_creator/` | app: `main.py` (window), `api.py` (calls from the page), `builder.py`, `trees.py`, `shells.py`, `dem.py`, `install.py`, `modlib.py`, `update.py` ... |
+| `skieo_creator/` | app: `main.py` (window), `api.py` (calls from the page), `builder.py`, `trees.py`, `shells.py`, `dem.py`, `install.py`, `oldmods.py`, `update.py` ... |
 | `skieo_creator/engine/` | writers for the cooked map data (heightmaps, providers, bounds, collision, frame, headers, materials) |
 | `web/` | the UI (HTML / CSS / JS) and vendored Leaflet + three.js |
-| `data/` | the cooked snow-shell template; `resort_templates.bin`, blank lift / trail save records (from `packaging/make_resort_templates.py`); the Mod Library's Lua mods (`mods/`), lift and building packs (`lifts/`) and UE4SS (`ue4ss/`) |
+| `data/` | the cooked snow-shell template; `resort_templates.bin`, blank lift / trail save records (from `packaging/make_resort_templates.py`); the tree meshes and patterns |
 | `tools/` | retoc.exe (MIT, https://github.com/trumank/retoc) and its license, both shipped in the exe. Nothing else goes here: `verify_exe.py` fails the release build on any file in `tools/`, `web/` or `data/` the exe doesn't ship |
-| `packaging/` | PyInstaller spec, build script, icon, version info, credits (`THIRD-PARTY.txt`), `verify_exe.py`; developer scripts the exe doesn't ship, such as `make_tree_patterns.py`, `make_tree_meshes.py` and `package_mod.py` (below) |
+| `packaging/` | PyInstaller spec, build script, icon, version info, credits (`THIRD-PARTY.txt`), `verify_exe.py`; developer scripts the exe doesn't ship, such as `make_tree_patterns.py` and `make_tree_meshes.py` |
 | `docs/` | this file and the README's screenshots |
 | `tests/ui_drive.py` | scripted UI sessions with screenshots (`search`, `3d`, `3d-offline`, `numbox`, `osm`, ...) |
 | `tests/test_resort.py` | self-check of the trail and lift import rules on made-up data |
 | `tests/test_dem.py` | self-check of reading where the USGS elevation image really is (its GeoTIFF tags) |
 | `tests/test_update.py` | self-check of the self-update (release lookup, checksums, swapping the exe) without the network |
 | `tests/test_install.py` | self-check of the map list entries (never a tutorial map, the once-only rebuild of older ones) |
+| `tests/test_map_package.py` | self-check that a map package holds only a map, with stand-in containers made from the game's files (skipped without the game) |
+| `tests/test_oldmods.py` | self-check of taking out what the old Mod Library installed, in stand-in game folders |
 | `tests/test_main.py` | self-check of the empty-window guard (a second try, then a message) with a stand-in window |
 | `.github/workflows/release.yml` | builds, checks, hashes and attests the exe and attaches it to each release |
 

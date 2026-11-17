@@ -2,6 +2,17 @@
 
 Maps made with an older version show **Rebuild recommended** in My Maps: one click on Rebuild gives them the fixes.
 
+## v1.9.0
+- **Mods moved to Z's Mod Loader.** The Mod Library is gone from the Map Creator: mods for Ski-E-O, the cheat menu,
+  Anarchy, Speed Control, the Doppelmayr R2 lifts and Alpine Buildings among them, are installed with
+  [Z's Mod Loader](https://mods.bigz.studio). The lifts and buildings come with its Asset Pack Combiner, which lets
+  asset packs from any modder work together in the build menu.
+- **What the Mod Library installed is taken out**, once, the first time the Map Creator finds the game closed, so Z's
+  Mod Loader can install (its installer won't install over that UE4SS): its UE4SS (unless other mods use it, and
+  never one Z's Mod Loader has taken over), its mods, its lift and building packs and its merged build menu. Maps and
+  the map list stay. A resort with the R2 lifts or Alpine Buildings needs them from Z's Mod Loader to load with them.
+- **A smaller download**: about 150 MB less, without the packs and UE4SS inside.
+
 ## v1.8.2
 - **Big maps run like the game's own.** The game draws every tree, with its shadow and its sway in the wind, on
   every frame however far away, so its frame rate goes with the number of trees, not with the map or the kind of

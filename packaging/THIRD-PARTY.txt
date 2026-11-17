@@ -9,9 +9,6 @@ Software
 * Leaflet 1.9.4 (BSD 2-Clause) -- https://leafletjs.com -- web/vendor/leaflet/LICENSE
 * three.js r160 with OrbitControls (MIT) -- https://threejs.org -- web/vendor/three/LICENSE
 * retoc (MIT) -- https://github.com/trumank/retoc -- tools/retoc-LICENSE
-* UE4SS v3.0.1 experimental (MIT) -- https://github.com/UE4SS-RE/RE-UE4SS -- data/ue4ss/ue4ss/LICENSE
-  Installed into the game only when a Mod Library mod needs it and the game has no UE4SS yet, with its shared Lua
-  libraries (UEHelpers) and Blueprint mod loader (BPModLoaderMod, BPML_GenericFunctions), from the same project.
   retoc downloads the Oodle compression library on first use.
 * pywebview (BSD 3-Clause), pythonnet (MIT), NumPy (BSD 3-Clause), Pillow (MIT-CMU), tifffile (BSD 3-Clause), Python (PSF)
 * Microsoft Edge WebView2 Runtime (installed on Windows; not included)

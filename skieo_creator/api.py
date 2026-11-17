@@ -21,7 +21,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from . import (APP_NAME, VERSION, biomes, builder, canopy, dem, gamedata, geo, install, modlib, net, paths, resort, server,
+from . import (APP_NAME, VERSION, biomes, builder, canopy, dem, gamedata, geo, install, net, oldmods, paths, resort, server,
                trees, update)
 
 log = logging.getLogger(__name__)
@@ -109,6 +109,7 @@ class Api:
         self._preview = None
         self._search_rate = net.RateLimit(1.1)
         self._registry_checked = False
+        self._old_mods_tried = set()           # game folders whose old Mod Library mods it tried to remove this run
         self._update = None                    # the newer release check_update found
         self._done = {}                        # main()'s: set 'exe' / 'old' and close the window to restart as them
 
@@ -218,7 +219,8 @@ class Api:
         install.raise_tree_limit(folder)
         running = install.game_running()
         if not running:
-            modlib.refresh(folder)                      # lift packs: keep their building table in step with the game
+            paths.sweep(Path(folder) / 'SkiResortSimulator', self._game.mods)   # work folders a crash left behind
+            self._remove_old_mods(folder)
             if not self._registry_checked and not self._busy():
                 self._registry_checked = True           # once a session: the map list of maps installed by an older
                 try:                                    # version (e.g. tutorial maps, see install.custom_entry)
@@ -228,6 +230,20 @@ class Api:
                 except Exception as ex:                 # never let this break the status check
                     log.warning('map list rebuild failed: %s', ex)
         return dict(found=True, folder=str(folder), build=build, running=running, ready=self._gd.ready())
+
+    def _remove_old_mods(self, folder):
+        """once per game folder, with the game closed: what the Mod Library of 1.2 to 1.8 put into the game (mods come
+        from Z's Mod Loader now); what won't go is tried again at the next start"""
+        key = os.path.normcase(os.path.abspath(str(folder)))
+        done = self._settings.get('old_mods_removed') or []
+        if key in done or key in self._old_mods_tried:
+            return
+        self._old_mods_tried.add(key)
+        try:
+            if oldmods.remove(folder):
+                self._settings.set(old_mods_removed=done + [key])
+        except Exception as ex:                         # never let this break the status check
+            log.warning('could not remove the old Mod Library\'s mods: %s', ex)
 
     @_safe
     def game_status(self):
@@ -358,25 +374,6 @@ class Api:
     def set_setting(self, key, value):
         if key in SETTING_KEYS:
             self._settings.set(**{key: value})
-
-    @_safe
-    def mod_library(self):
-        st = self._game_status()
-        return dict(found=False) if not st['found'] else dict(found=True, running=st['running'], **modlib.status(st['folder']))
-
-    @_safe
-    def set_mod(self, mod_id, on):
-        st = self._game_status()
-        if not st['found']:
-            raise UserError('Ski-E-O was not found.')
-        if mod_id not in modlib.MODS:
-            raise UserError('Unknown mod.')
-        if install.game_running():
-            raise UserError('Close Ski-E-O first, then try again.')
-        if on and next(m for m in modlib.status(st['folder'])['mods'] if m['id'] == mod_id)['included']:
-            raise UserError('Your own lift mod (ZZZ_LiftMod_P) already has this lift. Installing it twice would clash.')
-        log.info('mod %s -> %s', mod_id, 'on' if on else 'off')
-        return dict(found=True, running=False, **modlib.set_mod(st['folder'], mod_id, bool(on)))
 
     @_safe
     def link(self, name):

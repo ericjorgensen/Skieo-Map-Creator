@@ -316,17 +316,16 @@ class Game:
         return m
 
     def only_a_map(self, m, folder):
-        """a map package holds a map: not the shared assets (build menu, snow caps, map list), nor the game's own
-        outside the map folders, which would make it a way to put mods into the game that aren't in the Mod Library"""
-        from . import modscan                          # (it imports this module)
+        """a map package holds a map: not the assets all mods share (build menu, snow caps, map list), nor the game's
+        own outside the map folders, so installing a map never changes the game beyond the map"""
         stems = {}
         for f in m['files']:
             stems.setdefault(Path(f).stem, set()).add(Path(f).suffix.lower())
         for stem, have in stems.items():               # IoStore containers only: the .pak beside one holds no files
-            if have != {'.pak', '.ucas', '.utoc'} or modscan.pak_files(Path(folder) / (stem + '.pak')) != 0:
+            if have != {'.pak', '.ucas', '.utoc'} or pak_files(Path(folder) / (stem + '.pak')) != 0:
                 raise InstallError('"%s" is not only a map: %s is not a map container. It was not installed.'
                                    % (m['name'], stem))
-            bad = modscan.not_a_map(modscan.assets(Path(folder) / (stem + '.utoc')), modscan.base_assets(self.paks))
+            bad = not_a_map(assets(Path(folder) / (stem + '.utoc')), base_assets(self.paks))
             if bad:
                 raise InstallError('"%s" is not only a map: it replaces %s. It was not installed.' % (m['name'], bad[0]))
 
@@ -419,6 +418,77 @@ def extract_data_asset(paks, work, name, what, sub='Data'):
                 (out / 'scriptobjects.bin').read_bytes())
     except OSError:
         raise InstallError('The game\'s %s could not be read -- the game may have changed.' % what)
+
+
+# ---------------------------------------------------------------- what a map package may hold
+
+# the assets every mod shares, one owner each (the game's, or the one mod meant to own it): the build menu's table (and
+# the old Mod Library's renamed copy of it), the snow cap list and the map list
+SHARED = {'/Game/Data/DT_BuildingEconomy', '/Game/Data/DT_BuildingStock_0', '/Game/Data/SnowCaps/DA_SnowCapRegistry',
+          '/Game/Data/DA_LevelRegistry'}
+# where a map package's own packages live (builder.Names; the Map Installer's packages take over levels the same way)
+MAP_DIRS = ('/Game/Maps/', '/Game/Generated/', '/Game/InitialSaves/', '/Game/Materials/Terrain/', '/Game/Meshes/SnowShell/')
+
+
+def package_path(p):
+    """'../../../SkiResortSimulator/Content/Data/X.uasset' -> '/Game/Data/X' (plugins: '/<Plugin>/...')"""
+    p = p.replace(chr(92), '/')
+    m = re.search(r'SkiResortSimulator/Content/(.+)\.(?:uasset|umap)$', p)
+    if m:
+        return '/Game/' + m.group(1)
+    m = re.search(r'/Plugins/(?:.*/)?([^/]+)/Content/(.+)\.(?:uasset|umap)$', p)
+    return '/%s/%s' % (m.group(1), m.group(2)) if m else None
+
+
+def assets(utoc):
+    """the packages in an IoStore container (its .ucas must be beside it)"""
+    out = set()
+    for line in run_retoc(['list', '--path', str(utoc)]).stdout.splitlines():
+        parts = line.split(None, 3)
+        if len(parts) == 4 and parts[2] == 'ExportBundleData':
+            p = package_path(parts[3].strip())
+            if p:
+                out.add(p)
+    return out
+
+
+_base = {}
+
+
+def base_assets(paks):
+    """the game's own packages (cached per game build)"""
+    files = sorted(Path(paks).glob('SkiResortSimulator-*.utoc'))
+    key = tuple((f.name, f.stat().st_size, f.stat().st_mtime_ns) for f in files)
+    if key not in _base:
+        _base.clear()
+        _base[key] = set().union(*(assets(f) for f in files)) if files else set()
+    return _base[key]
+
+
+def pak_files(path):
+    """how many files a .pak holds outside the IoStore container beside it (retoc's and the editor's .pak beside a
+    container hold none: a 347-byte index); None if it can't be read (not a pak, or its index encrypted)"""
+    with open(path, 'rb') as f:
+        f.seek(0, 2)
+        size = f.tell()
+        f.seek(max(0, size - 1024))
+        tail = f.read()
+        i = tail.rfind(struct.pack('<I', 0x5A6F12E1))       # the footer's magic
+        if i < 1 or tail[i - 1] or i + 24 > len(tail):      # (byte before: the index is encrypted)
+            return None
+        off, length = struct.unpack_from('<qq', tail, i + 8)
+        if not (0 <= off and off + length <= size and length >= 8):
+            return None
+        f.seek(off)
+        idx = f.read(min(length, 4096))
+    n = struct.unpack_from('<i', idx, 0)[0]                 # the mount point (FString), then the file count
+    at = 4 + (n if n >= 0 else -2 * n)
+    return struct.unpack_from('<i', idx, at)[0] if at + 4 <= len(idx) else None
+
+
+def not_a_map(have, base):
+    """packages a map package must not have: the shared ones, and the game's own outside the map folders"""
+    return sorted(p for p in have if p in SHARED or (p in base and not p.startswith(MAP_DIRS)))
 
 
 # ---------------------------------------------------------------- registry entries

@@ -774,56 +774,14 @@ async function mapAction(slug, a) {
   if (!r.ok) return errorBox(r.error);
   startJob(r);
 }
-/* ------------------------------------------------------------ mod library */
-function renderMods(r) {
-  if (!r.found) { $('modsList').innerHTML = '<div class="empty">Ski-E-O was not found.</div>'; return; }
-  $('modsList').innerHTML = r.mods.map((m) => {
-    const note = m.included ? 'Already in your own lift mod'
-      : m.on ? (m.note ? esc(m.note) : m.key ? `Installed: press ${esc(m.key)} in game` : m.menu ? 'Installed: in the build menu' : 'Installed')
-      : 'Not installed';
-    return `<div class="mrow" data-mod="${esc(m.id)}">
-      <div class="mi"><h4>${esc(m.name)}</h4>
-        ${m.author ? `<div class="sub by">by ${esc(m.author)}</div>` : ''}
-        ${m.about ? `<div class="sub">${esc(m.about)}</div>` : ''}
-        <span class="badge${m.on ? '' : ' off'}">${note}</span></div>
-      <div class="mbtns">
-        <button class="gbtn green" data-on="1" ${m.on || m.included ? 'disabled' : ''} aria-label="Install ${esc(m.name)}">Install</button>
-        <button class="gbtn crimson" data-on="0" ${!m.on || m.included ? 'disabled' : ''} aria-label="Uninstall ${esc(m.name)}">Uninstall</button>
-      </div></div>`;
-  }).join('');
-  $('modsList').querySelectorAll('.mbtns button').forEach((btn) => {
-    btn.onclick = async () => {
-      const row = btn.closest('.mrow');
-      const on = btn.dataset.on === '1';
-      if (!on && !await confirmBox('Uninstall ' + row.querySelector('h4').textContent + '?',
-        'It is removed from the game. Resorts that use it may not load until you install it again.', 'Uninstall')) return;
-      document.querySelectorAll('#modsList .mbtns button').forEach((x) => { x.disabled = true; });
-      row.querySelector('.badge').textContent = on ? 'Installing...' : 'Removing...';
-      const res = await call('set_mod', row.dataset.mod, on);
-      if (!res.ok) { errorBox(res.error); return loadMods(); }
-      renderMods(res);
-    };
-  });
-}
-async function loadMods() {
-  const r = await call('mod_library');
-  if (!r.ok) return errorBox(r.error);
-  renderMods(r);
-}
 /* ------------------------------------------------------------ tabs, footer */
 
-let lastTab = 'create';
 function showTab(name) {
-  if (name !== 'mods') lastTab = name;
   document.querySelectorAll('.tag-tab').forEach((x) => x.classList.toggle('active', x.dataset.tab === name));
-  ['create', 'maps', 'mods'].forEach((n) => $('tab-' + n).classList.toggle('hidden', n !== name));
-  $('modsBtn').classList.toggle('hidden', name === 'mods');
+  ['create', 'maps'].forEach((n) => $('tab-' + n).classList.toggle('hidden', n !== name));
   if (name === 'maps') loadMaps();
-  if (name === 'mods') loadMods();
 }
 document.querySelectorAll('.tag-tab').forEach((t) => { t.onclick = () => showTab(t.dataset.tab); });
-$('modsBtn').onclick = () => showTab('mods');
-$('modsBack').onclick = () => showTab(lastTab);
 document.querySelectorAll('[data-layer]').forEach((b) => {
   b.onclick = () => { setLayer(b.dataset.layer); call('set_setting', 'layer', S.layer); };
 });

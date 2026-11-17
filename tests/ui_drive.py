@@ -9,8 +9,6 @@ usage: python tests/ui_drive.py <out dir> <scenario>
              units    -- yearly snowfall next to the multiplier, the ft | m switch
              treecap  -- the tree slider follows the map size (5M typed at 20 km, then 12 / 3 / 20 / 8 km, a moved square)
              bigtrees -- 20 km map with the most trees the slider allows: create and install (Ski-E-O must be closed)
-             mods     -- Mod Library: install the pack named by env MOD (default 'buildings') with its real Install
-                         button (Ski-E-O must be closed)
              osm      -- real trails and lifts: search env OSM_Q (default 'Beaver Creek'; OSM_KM size, OSM_AT "lat,lon"
                          centre), load terrain, switch the OpenStreetMap option on, show the lines and the lift list,
                          the satellite view (glades left out in grey) and with env OSM_LOOK "lat,lon,zoom" a close look;
@@ -121,7 +119,7 @@ def drive(win):
         js(win, "document.querySelector('[data-tab=maps]').click()")
         time.sleep(1.5)
         shot('09_maps')
-    if SCEN == 'features':                                     # satellite layer, treeline fade, mod library tab
+    if SCEN == 'features':                                     # satellite layer, treeline fade
         js(win, "document.querySelector('[data-layer=sat]').click(); map.setView([45.87, 6.92], 13)")
         time.sleep(6)
         shot('60_satellite')
@@ -130,13 +128,6 @@ def drive(win):
         shot('61_fade')
         print('fade', js(win, "JSON.stringify({v: document.getElementById('fade').value, max: document.getElementById('fade').max, "
                               "box: document.getElementById('fadeOut').value, size_max: document.getElementById('size').max})"), flush=True)
-        js(win, "document.getElementById('modsBtn').click()")
-        wait_js(win, "document.querySelectorAll('#modsList .mrow, #modsList .empty').length > 0", 20)
-        time.sleep(0.8)
-        shot('62_mods')
-        js(win, "document.getElementById('modsBack').click()")
-        time.sleep(0.8)
-        shot('63_back')
         js(win, "document.querySelector('[data-layer=topo]').click()")
         print('errors', js(win, "JSON.stringify(window.__errs || [])"), flush=True)
     if SCEN == 'units':                                        # yearly snowfall next to the multiplier, ft | m switch
@@ -428,22 +419,6 @@ def drive(win):
             time.sleep(0.6)
             shot('a5_created')
             print('job', (js(win, "JSON.stringify(S.job)") or '')[:800], flush=True)
-        print('errors', js(win, "JSON.stringify(window.__errs || [])"), flush=True)
-    if SCEN == 'mods':
-        row = "document.querySelector('#modsList .mrow[data-mod=%s]')" % json.dumps(os.environ.get('MOD', 'buildings'))
-        inst, uninst = row + ".querySelector('[data-on=\"1\"]')", row + ".querySelector('[data-on=\"0\"]')"
-        js(win, "document.getElementById('modsBtn').click()")
-        wait_js(win, "document.querySelectorAll('#modsList .mrow, #modsList .empty').length > 0", 60)
-        time.sleep(0.8)
-        shot('70_mods')
-        if not js(win, inst + '.disabled'):                  # not installed yet: Install
-            js(win, inst + '.click()')
-            wait_js(win, "(function (i, u) { return i && i.disabled && !u.disabled; })(%s, %s)" % (inst, uninst), 300)
-            time.sleep(0.8)
-            shot('71_mods_on')
-        print('mods', js(win, "JSON.stringify([].map.call(document.querySelectorAll('#modsList .mrow'), function (r) { "
-                              "return [r.dataset.mod, !r.querySelector('[data-on=\"0\"]').disabled, r.querySelector('.badge').textContent]; }))"),
-              flush=True)
         print('errors', js(win, "JSON.stringify(window.__errs || [])"), flush=True)
     time.sleep(0.5)
     win.destroy()

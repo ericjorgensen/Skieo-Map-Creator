@@ -35,7 +35,6 @@ Fan-made; not affiliated with or endorsed by the developers of Ski-E-O!.
 - **3D preview.** Look the terrain over in 3D before you build it.
 - **Installs itself.** The map shows up on the game's world map in its real region, with its real elevations and
   climate. **My Maps** reinstalls, removes or rebuilds your maps with the latest fixes.
-- **Mod Library.** One-click extras for the game, [below](#mod-library).
 - **Updates itself** from this page's releases.
 
 ## Screenshots
@@ -77,23 +76,13 @@ Needs Windows 10 or 11, Ski-E-O! installed through Steam, and an internet connec
 the Map Creator reads what it needs from your own copy of the game. What changed in each version:
 [CHANGELOG.md](CHANGELOG.md).
 
-## Mod Library
+## Mods
 
-Extras for the game, installed and removed with one click in the Map Creator (close the game first):
-
-| Mod | What it does |
-|---|---|
-| **Oof's Simple Cheat Menu** | **F6** in game: money, time up to 100x, weather and climate, reputation, guests, no accidents or breakdowns, build anywhere |
-| **Oof's Anarchy** | **Ctrl+A** in game: build anywhere. Buildings and lifts ignore slopes, ground type, trees and rocks, and other buildings |
-| **Oof's Speed Control** | Speed buttons from 1x to 100x under the game's own |
-| **Oof's Alpine Buildings** | 50 new cabins, hotels and base lodges in the build menu |
-| **Doppelmayr D-Line R2 Six** and **R2 Gondola** | Two new lifts in the build menu |
-
-The in-game mods (the cheat menu, Anarchy and Speed Control) run on the [UE4SS](https://github.com/UE4SS-RE/RE-UE4SS)
-mod loader: the Map Creator installs it if you don't have it, and removes it again with the last mod that needs it
-(unless other mods use it).
-
-Made a mod and want it in the Mod Library? See [docs/MODDING.md](docs/MODDING.md).
+Mods for Ski-E-O, the cheat menu, Anarchy, Speed Control, the Doppelmayr R2 lifts and Alpine Buildings among them, are
+installed with [Z's Mod Loader](https://mods.bigz.studio), not the Map Creator. Its installer won't install over the
+UE4SS the Map Creator's old Mod Library (versions 1.2 to 1.8) put into the game, so the first time it finds the game
+closed, version 1.9 takes out what that library installed: its UE4SS (unless other mods use it), its mods, its lift and
+building packs and its merged build menu. Your maps stay.
 
 ## If something goes wrong
 
@@ -102,7 +91,7 @@ Made a mod and want it in the Mod Library? See [docs/MODDING.md](docs/MODDING.md
   WebView2 is damaged (tools that remove Microsoft Edge often leave it half removed): repair it in Windows Settings >
   Apps > Microsoft Edge WebView2 Runtime > Modify, or install it from
   [Microsoft](https://go.microsoft.com/fwlink/p/?LinkId=2124703).
-- **The game closes the first time it starts after installing a map or a mod.** That can happen once: start it
+- **The game closes the first time it starts after installing a map.** That can happen once: start it
   again.
 - **A big map runs slowly.** The game draws every tree, with its shadow and its sway in the wind, on every frame,
   however far away, so its frame rate goes with the number of trees: Sun Peaks at 14 km with 3.6 million ran at half
@@ -148,8 +137,8 @@ What the app connects to: GitHub at each start (this repository's latest release
 (OpenStreetMap, OpenTopoMap, Esri World Imagery), place search (Photon, Nominatim), elevation data (USGS 3DEP, AWS
 Terrain Tiles) and, with **Real trails and lifts** on, the OpenStreetMap ski data (Overpass API) and tree canopy
 heights (Meta / WRI, AWS Open Data). retoc downloads the Oodle compression library on first use. No accounts, no
-telemetry. It writes to `%LOCALAPPDATA%\SkiEO Map Creator`, the game's `Content\Paks\~mods` folder and, for the
-in-game mods, `Binaries\Win64\ue4ss`; never to your saves.
+telemetry. It writes to `%LOCALAPPDATA%\SkiEO Map Creator` and the game's `Content\Paks\~mods` folder (and, once,
+takes out what its old Mod Library put into the game, [above](#mods)); never to your saves.
 
 ## For developers
 
