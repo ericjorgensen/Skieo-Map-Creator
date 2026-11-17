@@ -12,6 +12,9 @@ Maps made with an older version show **Rebuild recommended** in My Maps: one cli
   never one Z's Mod Loader has taken over), its mods, its lift and building packs and its merged build menu. Maps and
   the map list stay. A resort with the R2 lifts or Alpine Buildings needs them from Z's Mod Loader to load with them.
 - **A smaller download**: 36 MB instead of 176, without the packs and UE4SS inside.
+- **Also in this release**, as 1.8.2 was not released on its own: big maps run like the game's own (Max trees stops
+  at 1.5 million, the trees round the lifts and trails kept), **Experimental mode** for the full forest, and
+  **Rebuild recommended** on big maps. Details under v1.8.2 below.
 
 ## v1.8.2
 - **Big maps run like the game's own.** The game draws every tree, with its shadow and its sway in the wind, on
