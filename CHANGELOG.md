@@ -19,6 +19,12 @@ Maps made with an older version show **Rebuild recommended** in My Maps: one cli
 - Every map has its own terrain collision IDs (all maps shared Mad River Glen's, and the game caches terrain collision
   by that ID), and the collision's height range is written where the game reads it.
 - Maps show **Rebuild recommended**: rebuild them to get maps made the new way.
+- **The Map Creator no longer changes the game's exe.** Since 1.3 it raised the game's tree limit inside
+  skieogame.exe, and a changed exe makes the native helpers of Z's Mod Loader refuse to run: asset packs then miss
+  the build menu and their roof snow, and Catwalk Trails and Staff Trail Routing switch off. It now puts the game's
+  own value back, once, with the game closed. Maps with more than 1.5 million trees (Experimental mode) need
+  **Oof's Tree Limit**, a mod in Z's Mod Manager that raises the limit while the game runs without changing any
+  file; My Maps marks the maps that need it with **Needs Oof's Tree Limit** until it is turned on.
 
 ## v1.9.0
 - **Mods moved to Z's Mod Loader.** The Mod Library is gone from the Map Creator: mods for Ski-E-O, the cheat menu,

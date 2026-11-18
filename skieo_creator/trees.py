@@ -23,7 +23,7 @@ BANDS = 10
 # ~18,800 trees per km2: Mad River Glen 19,007, Sugar Bowl 18,682) or TREE_BUDGET (below), whichever is less; in
 # experimental mode up to the density, 7.5M at 20 km. Its count is the most tree instances a map keeps (tree_budget).
 # Trees load in square by square after the map opens, the game slow until done (the UI warns). The game drops all
-# trees past 1.5M unless its exe limit is raised (install.raise_tree_limit).
+# trees past 1.5M unless the Oof's Tree Limit mod raises its limit in memory (install.GAME_TREE_LIMIT, tree_mod_on).
 TREES_PER_KM2 = 18750
 DEFAULT_TREES = 250000         # about what the game's own maps have (Mad River Glen 195k, Sugar Bowl 256k)
 MIN_TREES = 25000

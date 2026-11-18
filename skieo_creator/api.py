@@ -217,7 +217,7 @@ class Api:
         self._game.build = build
         if self._gd is None or self._gd.fp != gamedata.game_fingerprint(folder):
             self._gd = gamedata.GameData(folder)
-        install.raise_tree_limit(folder)
+        install.restore_tree_limit(folder)
         running = install.game_running()
         if not running:
             paths.sweep(Path(folder) / 'SkiResortSimulator', self._game.mods)   # work folders a crash left behind
@@ -230,7 +230,8 @@ class Api:
                         log.info('map list rebuilt for this version')
                 except Exception as ex:                 # never let this break the status check
                     log.warning('map list rebuild failed: %s', ex)
-        return dict(found=True, folder=str(folder), build=build, running=running, ready=self._gd.ready())
+        return dict(found=True, folder=str(folder), build=build, running=running, ready=self._gd.ready(),
+                    tree_mod=install.tree_mod_on(folder))
 
     def _remove_old_mods(self, folder):
         """once per game folder, with the game closed: what the Mod Library of 1.2 to 1.8 put into the game (mods come
@@ -672,7 +673,11 @@ class Api:
         stale = bool(self._gd and rec.get('game_fp') and rec['game_fp'] != self._gd.fp) \
             or rec.get('recipe', 1) < builder.recipe(rec['spec'])     # made by an older creator: rebuild for its fixes
         s = rec['spec']
+        # the game shows no trees on a map over its limit unless Oof's Tree Limit is on (Experimental mode)
+        needs_tree_mod = int(rec.get('stats', {}).get('trees', 0)) > install.GAME_TREE_LIMIT \
+            and not (self._game and install.tree_mod_on(self._game.folder))
         return dict(slug=rec['slug'], name=rec['name'], created=rec.get('created'), installed=installed, stale=stale,
+                    needs_tree_mod=needs_tree_mod,
                     lat=s['lat'], lon=s['lon'], size_km=s['size_m'] / 1000.0, biome=s['biome'],
                     biome_label=biomes.BIOMES.get(s['biome'], {}).get('label', s['biome']), stats=rec.get('stats', {}),
                     thumb=_data_url(Image.open(thumb), 'JPEG', 80) if thumb.is_file() else None)

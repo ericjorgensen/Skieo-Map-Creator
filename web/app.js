@@ -150,7 +150,7 @@ A slower PC loses about the same share (an estimate: around 20-25 fps with 3.6 m
 
 Also:
 • The trees take longer to fill in after the map opens, and the game uses more memory.
-• The game drops every tree of a map with more than 1.5 million. The Map Creator lifts that limit in the game, but a game update puts it back: such maps show no trees until you open the Map Creator again.
+• The game drops every tree of a map with more than 1.5 million. Such maps need Oof's Tree Limit, a mod in Z's Mod Manager: turned on, it raises that limit while the game runs (it changes no game file). Players you share the map with need it too.
 • Maps you share run just as slowly for other players.`;
 $('expTrees').onchange = async () => {
   if ($('expTrees').checked && !(await confirmBox('Experimental mode: more trees', EXP_WARNING, 'Switch it on'))) {
@@ -735,8 +735,10 @@ function renderMaps() {
   $('mapCount').textContent = S.maps.length || '';
   $('mapsEmpty').classList.toggle('hidden', S.maps.length > 0);
   $('mapsList').innerHTML = S.maps.map((m) => {
-    const badge = m.stale ? '<span class="badge stale">Rebuild recommended</span>'
-      : m.installed ? '<span class="badge">Installed</span>' : '<span class="badge off">Not installed</span>';
+    const badge = (m.stale ? '<span class="badge stale">Rebuild recommended</span>'
+      : m.installed ? '<span class="badge">Installed</span>' : '<span class="badge off">Not installed</span>')
+      + (m.needs_tree_mod ? ' <span class="badge stale" title="Over 1.5 million trees: the game shows them only with '
+        + 'Oof\'s Tree Limit turned on in Z\'s Mod Manager">Needs Oof\'s Tree Limit</span>' : '');
     const st = m.stats || {};
     return `<div class="mrow" data-slug="${esc(m.slug)}">
       <img src="${m.thumb || ''}" alt="">

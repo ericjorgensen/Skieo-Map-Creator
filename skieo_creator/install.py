@@ -167,8 +167,13 @@ def game_running():
 
 # The game drops ALL of a map's trees when it has more than 1.5 million: its baked-obstacle reader does
 # ensure(RecordCount <= UObstacleDataManager::MaxBakedTrees) and rejects the whole blob. That compare is the only use
-# of the constant (the tree arrays follow the record count), so its immediate is raised in skieogame.exe.
-TREE_LIMIT = 20000000
+# of the constant (the tree arrays follow the record count). Versions 1.3 to 1.9 raised its immediate in
+# skieogame.exe, but a changed exe makes the native helpers of Z's Mod Loader refuse to run (asset packs then miss the
+# build menu; Catwalk Trails, Staff Trail Routing switch off). The Oof's Tree Limit mod (Z's Mod Manager) raises it in
+# the running game's memory instead, and the app puts the game's own value back where it changed it.
+GAME_TREE_LIMIT = 1500000
+OLD_TREE_PATCH = 20000000       # what versions 1.3 to 1.9 wrote over it (always this value)
+TREE_MOD = 'OofsTreeLimit'      # the mod's folder in <game>/mods
 # cmp r32, imm32 ; jbe ok (short in the demo, near in the full game) ... lea rdx, [the "... over the bake cap" message]
 _TREE_CHECK = re.compile(rb'\x81[\xF8-\xFF](....)(?:\x76.|\x0F\x86....)', re.S)
 _LEA_RDX = re.compile(rb'\x48\x8D\x15(....)', re.S)
@@ -194,9 +199,10 @@ def _tree_check_at(data):
     return hits[0].start(1) if len(hits) == 1 else None
 
 
-def raise_tree_limit(folder):
-    """Sets the game's tree limit to TREE_LIMIT (game closed). Steam updates undo it, so it is checked whenever the
-    app looks at the game; cached per exe version. Returns the limit in effect (None: unknown, logged once)."""
+def restore_tree_limit(folder):
+    """Puts the game's own tree limit back (game closed) where an older version raised it in skieogame.exe: only that
+    value, so the exe is Steam's again. Checked whenever the app looks at the game; cached per exe version. Returns the
+    limit in the exe (None: unknown, logged once)."""
     exe = Path(folder) / 'SkiResortSimulator' / 'Binaries' / 'Win64' / GAME_EXE
     key = (str(exe),)
     try:
@@ -210,24 +216,30 @@ def raise_tree_limit(folder):
             _tree_check_seen[key] = (at, at and struct.unpack_from('<I', data, at)[0])
         at, limit = _tree_check_seen[key]
         if not at:
-            log.warning('tree limit check not found in %s: maps over 1.5M trees will show none', exe)
-        elif limit < TREE_LIMIT:
+            log.info('tree limit check not found in %s (a game update changed that code)', exe)
+        elif limit == OLD_TREE_PATCH:
             if game_running():
                 return limit                                    # the exe is locked; tried again next time
             with open(exe, 'r+b') as f:
                 f.seek(at)
-                f.write(struct.pack('<I', TREE_LIMIT))
-            log.info('game tree limit raised from %d to %d', limit, TREE_LIMIT)
-            limit = TREE_LIMIT
+                f.write(struct.pack('<I', GAME_TREE_LIMIT))
+            log.info('game tree limit put back from %d to %d in %s', limit, GAME_TREE_LIMIT, exe)
+            limit = GAME_TREE_LIMIT
             st = exe.stat()
             key = (str(exe), st.st_size, st.st_mtime_ns)
     except (OSError, struct.error, StopIteration) as e:                # never let this break the app
         if key in _tree_limit_seen:
             return None
-        log.warning('could not raise the game tree limit: %s', e)
+        log.warning('could not check the game tree limit: %s', e)
         limit = None
     _tree_limit_seen[key] = limit
     return limit
+
+
+def tree_mod_on(folder):
+    """Is Oof's Tree Limit installed and turned on in Z's Mod Manager (its folder in <game>/mods, with enabled.txt)?"""
+    mod = Path(folder) / 'mods' / TREE_MOD
+    return (mod / 'enabled.txt').is_file() and (mod / 'Native' / 'TreeLimit.dll').is_file()
 
 
 # ---------------------------------------------------------------- state
@@ -277,7 +289,7 @@ class Game:
 
     def install(self, package, progress=lambda msg: None):
         self.check_ready()
-        raise_tree_limit(self.folder)
+        restore_tree_limit(self.folder)
         m = self.read_package(package)
         st = self.state()
         for mid, other in st['maps'].items():
