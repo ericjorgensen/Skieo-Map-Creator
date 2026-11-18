@@ -30,7 +30,8 @@ Fan-made; not affiliated with or endorsed by the developers of Ski-E-O!.
   they are there, with conifers near the summits, up to the treeline, and a tree limit for slower PCs. A map keeps
   at most 1.5 million trees and canopies, about what the game's own biggest maps have, so it runs as smoothly: a
   bigger forest keeps its trees round the lifts and trails, where you play, and grows them a size larger so it
-  still looks full. **Experimental mode** allows more, up to the game's full density, at a cost in frame rate.
+  still looks full. **Experimental mode** allows more, up to the game's full density, at a cost in frame rate (the
+  game shows those trees with the **Oof's Tree Limit** mod turned on in Z's Mod Manager).
 - **Snow like the game's own maps.** Piles, banks and drifts build up through the winter.
 - **3D preview.** Look the terrain over in 3D before you build it.
 - **Installs itself.** The map shows up on the game's world map in its real region, with its real elevations and
@@ -98,10 +99,12 @@ building packs and its merged build menu. Your maps stay.
   the frame rate of a normal map. Maps built since 1.8.2 keep at most 1.5 million trees and canopies, about what the
   game's own biggest maps have (Whistler: 1.42 million): if yours shows **Rebuild recommended**, rebuild it. Maps
   made in **Experimental mode** with more trees than that run slower by design.
-- **A custom map has no trees after a game update.** The game drops every tree of a map with more than 1.5 million,
-  and the Map Creator raises that limit in the game's exe. A game update puts the old exe back: close the game, open
-  the Map Creator once, then start the game. Your maps need no rebuilding (and maps built since 1.8.2 stay under it,
-  unless made in Experimental mode).
+- **A map made in Experimental mode has no trees.** The game drops every tree of a map with more than 1.5 million.
+  Turn on **Oof's Tree Limit** in Z's Mod Manager: it raises that limit while the game runs, without changing any
+  game file, so game updates don't undo it. My Maps marks those maps **Needs Oof's Tree Limit** until it is on. Maps
+  built since 1.8.2 outside Experimental mode stay under the limit and need nothing. (Up to 1.9 the Map Creator raised
+  the limit inside the game's exe, which stops the native helpers of Z's Mod Loader; 1.10 puts the game's own value
+  back.)
 - **Anything else:** press **Copy diagnostics** at the bottom of the Map Creator and paste it into an
   [issue](https://github.com/oofbyte/Skieo-Map-Creator/issues). The log is
   `%LOCALAPPDATA%\SkiEO Map Creator\logs\creator.log`.

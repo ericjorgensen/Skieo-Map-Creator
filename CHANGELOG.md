@@ -25,6 +25,10 @@ Maps made with an older version show **Rebuild recommended** in My Maps: one cli
   own value back, once, with the game closed. Maps with more than 1.5 million trees (Experimental mode) need
   **Oof's Tree Limit**, a mod in Z's Mod Manager that raises the limit while the game runs without changing any
   file; My Maps marks the maps that need it with **Needs Oof's Tree Limit** until it is turned on.
+- **Shared maps:** a map package made with 1.10 needs 1.10 or later to install (older versions say it was made for a
+  different installer version). 1.10 still installs packages made with older versions.
+- Checked with the game's November 17 update (CL7957): its map layout, terrain material and tree data are unchanged,
+  so maps build as before.
 
 ## v1.9.0
 - **Mods moved to Z's Mod Loader.** The Mod Library is gone from the Map Creator: mods for Ski-E-O, the cheat menu,
