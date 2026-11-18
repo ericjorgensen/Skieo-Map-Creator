@@ -99,10 +99,11 @@ building packs and its merged build menu. Your maps stay.
   the frame rate of a normal map. Maps built since 1.8.2 keep at most 1.5 million trees and canopies, about what the
   game's own biggest maps have (Whistler: 1.42 million): if yours shows **Rebuild recommended**, rebuild it. Maps
   made in **Experimental mode** with more trees than that run slower by design.
-- **A map made in Experimental mode has no trees.** The game drops every tree of a map with more than 1.5 million.
-  Turn on **Oof's Tree Limit** in Z's Mod Manager: it raises that limit while the game runs, without changing any
-  game file, so game updates don't undo it. My Maps marks those maps **Needs Oof's Tree Limit** until it is on. Maps
-  built since 1.8.2 outside Experimental mode stay under the limit and need nothing. (Up to 1.9 the Map Creator raised
+- **A big map has no trees.** The game drops every tree of a map with more than 1.5 million (made in Experimental
+  mode, or built before 1.8.2). Turn on **Oof's Tree Limit** in Z's Mod Manager: it raises that limit while the game
+  runs, without changing any game file, so game updates don't undo it. My Maps marks those maps **Needs Oof's Tree
+  Limit** until it is on. A map built before 1.8.2 can be rebuilt instead, which keeps it under the limit; maps built
+  since 1.8.2 outside Experimental mode stay under it and need nothing. (Up to 1.9 the Map Creator raised
   the limit inside the game's exe, which stops the native helpers of Z's Mod Loader; 1.10 puts the game's own value
   back.)
 - **Anything else:** press **Copy diagnostics** at the bottom of the Map Creator and paste it into an
