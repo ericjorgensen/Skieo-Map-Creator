@@ -571,7 +571,7 @@ class Api:
         if not (BASE_MARGIN <= row <= builder.G - 1 - BASE_MARGIN and BASE_MARGIN <= col <= builder.G - 1 - BASE_MARGIN):
             raise UserError('Put the base area marker inside the square (not right at its edge).')
         treeline_m = float(params.get('treeline_m', biomes.default_treeline(biome, pv['lat'])))
-        # more trees than TREE_BUDGET (the app warns first); not on macOS, where the game's limit stays (raise_tree_limit)
+        # more trees than TREE_BUDGET (the app warns first); not on macOS (Oof's Tree Limit is a Windows mod)
         experimental = bool(params.get('experimental')) and install.TREES_UNCAPPED
         return dict(name=name, lat=pv['lat'], lon=pv['lon'], size_m=size_m, size_km=pv['size_km'], biome=biome,
                     treeline=float(np.clip(treeline_m, 0, 9000)), valley=float(np.clip(float(params.get('valley_m') or 0), 0, 9000)),
