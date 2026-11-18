@@ -227,6 +227,9 @@ def restart(*args):
 
 def _language():
     try:
+        if system.MAC:                                     # an app started from Finder has no LANG
+            from Foundation import NSLocale
+            return str(NSLocale.currentLocale().localeIdentifier())
         if not system.WINDOWS:
             return locale.getlocale()[0] or os.environ.get('LANG') or '?'
         return locale.windows_locale.get(ctypes.windll.kernel32.GetUserDefaultUILanguage(), '?')
